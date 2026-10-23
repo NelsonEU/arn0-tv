@@ -1,0 +1,18 @@
+/* Chromium 56 (Tizen 4.0): no CSS grid and no flex gap, so floats and margins stand in. */
+@supports not (display: grid) {
+    .grid, .thumbs { display: block; }
+    .grid::after, .thumbs::after { content: ""; display: table; clear: both; }
+    .grid > * { float: left; width: 300px; margin: 0 45px 34px 0; }
+    .grid > *:nth-child(5n) { margin-right: 0; }
+    .grid > *:nth-child(5n+1) { clear: left; }
+    .thumbs > * { float: left; width: 256px; margin: 0 28px 26px 0; }
+    .thumbs > *:nth-child(6n) { margin-right: 0; }
+    .thumbs > *:nth-child(6n+1) { clear: left; }
+    .settings-list.two-col { display: block; -webkit-column-count: 2; column-count: 2; -webkit-column-gap: 40px; column-gap: 40px; }
+    .settings-list.two-col > * { -webkit-column-break-inside: avoid; break-inside: avoid; margin-bottom: 12px; }
+    .hints > * + * { margin-left: 40px; }
+    .hint > * + * { margin-left: 12px; }
+    .probe-row > * + * { margin-left: 36px; }
+    .ss-clock > * + * { margin-left: 36px; }
+    .ss-wx-now > * + * { margin-left: 14px; }
+}

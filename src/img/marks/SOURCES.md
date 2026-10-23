@@ -15,5 +15,6 @@ Trademarks belong to their owners; used here only to identify apps and devices.
 - movistar.svg: https://cdn.jsdelivr.net/npm/simple-icons@13.21.0/icons/movistar.svg (Simple Icons, CC0)
 - playstation.svg: https://cdn.jsdelivr.net/npm/simple-icons@13.21.0/icons/playstation.svg (Simple Icons, CC0)
 - nintendoswitch.svg: https://cdn.jsdelivr.net/npm/simple-icons@13.21.0/icons/nintendoswitch.svg (Simple Icons, CC0)
+- chromecast.svg: https://cdn.jsdelivr.net/npm/simple-icons@13.21.0/icons/chromecast.svg (Simple Icons, CC0)
 - disneyplus.svg: https://raw.githubusercontent.com/elax46/custom-brand-icons/a53cabf49bf439023a8f33585af30d783bffe51b/icon-svg/disney-plus.svg (Custom Brand Icons, MIT)
 - xbox.svg: https://raw.githubusercontent.com/elax46/custom-brand-icons/a53cabf49bf439023a8f33585af30d783bffe51b/icon-svg/xbox.svg (Custom Brand Icons, MIT)

@@ -70,6 +70,17 @@
      * The context is created on the first key press rather than at boot: engines may refuse to
      * start audio without a user gesture, and on a TV the first remote press is that gesture.
      */
+    // An open context can keep the TV's audio path busy under the app in front: let it go.
+    document.addEventListener('visibilitychange', function () {
+        if (!ctx || !ctx.suspend) return;
+        try {
+            if (document.hidden) ctx.suspend();
+            else ctx.resume();
+        } catch (e) {
+            // Older engines without suspend/resume: nothing to release.
+        }
+    });
+
     function context() {
         if (ctx || broken) return ctx;
         try {

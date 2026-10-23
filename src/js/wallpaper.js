@@ -13,7 +13,12 @@
 
     var token = 0;
 
-    function list() { return window.WALLPAPERS || []; }
+    // Online photos replace the built-in set once at least one is ready; until then, and offline,
+    // the built-in set stands in.
+    function list() {
+        var online = window.OnlineWallpapers && OnlineWallpapers.enabled() ? OnlineWallpapers.list() : [];
+        return online.length ? online : window.WALLPAPERS || [];
+    }
 
     function find(key) {
         return list().find(function (w) { return w.key === key; }) || list()[0] || null;
@@ -57,6 +62,7 @@
         if (p.mode === 'off') p.mode = 'photo';
         Prefs.save();
         apply();
+        if (window.OnlineWallpapers) OnlineWallpapers.fill();
         return find(p.photo);
     }
 
@@ -73,6 +79,19 @@
     }
 
     function start() {
+        // The first online photo replaces a built-in one as soon as it is ready.
+        OnlineWallpapers.onChange(function () {
+            var p = Prefs.get().wallpaper;
+            var online = OnlineWallpapers.list();
+            var showing = online.some(function (w) { return w.key === p.photo; });
+            if (p.mode !== 'off' && !showing && online.length) {
+                p.photo = online[0].key;
+                p.lastChange = Date.now();
+                Prefs.save();
+                apply();
+            }
+        });
+        OnlineWallpapers.start();
         apply();
         homeShown();
         // The screen saver has its own photo cycle and covers Home completely, so rotating

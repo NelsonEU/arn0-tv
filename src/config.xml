@@ -23,7 +23,10 @@
     <tizen:metadata key="http://samsung.com/tv/metadata/prelaunch.support" value="true"/>
 
     <tizen:profile name="tv-samsung"/>
+    <!-- background-support: without it the TV ends the launcher as soon as another app is in front
+         (seen on a UE50NU7025), and "Return here after an app" has nobody left to bring back.
+         Hidden, the launcher stops its clock, rotation and audio, so the app in front pays nothing. -->
     <tizen:setting screen-orientation="landscape" context-menu="disable"
-                   background-support="disable" encryption="disable"
+                   background-support="enable" encryption="disable"
                    install-location="auto" hwkey-event="enable"/>
 </widget>

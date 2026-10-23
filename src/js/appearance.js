@@ -50,6 +50,10 @@
         home.classList.toggle('names-focused', p.names === 'focused');
         home.classList.toggle('names-never', p.names === 'never');
         home.classList.toggle('no-date', !p.showDate);
+        home.classList.toggle('no-weather', !p.homeWeather);
+        document.documentElement.classList.toggle('style-tvos', p.style === 'tvos');
+        document.documentElement.lang = p.locale.slice(0, 2);
+        I18n.apply();
     }
 
     window.Appearance = {

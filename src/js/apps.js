@@ -15,7 +15,9 @@
         'ZODRT12q2l.WebAccountExtension', 'ByJlgt0XeD.CastSettingsApp', 'tv6pbVMQFF.PrivacyChoices',
         '2022ePop01.SmartTV', 'w2VwCK465D.OTApp', 'J9fZJDMi1v.SecurityCenter'
     ];
-    var NOISE = /service|worker|preview|promotion|plugin|launcher|test|sdk|^ep[ -]|factory|daemon|dummy|agent|e-?manual|account|adplayer|privacy|security/i;
+    // Not 'launcher': CANAL+ and Prime Video ship as QmpwflxWdt.CanalPlusLauncher and
+    // evKhCgZelL.AmazonIgnitionLauncher2; this launcher is already left out by its own id.
+    var NOISE = /service|worker|preview|promotion|plugin|test|sdk|^ep[ -]|factory|daemon|dummy|agent|e-?manual|account|adplayer|privacy|security/i;
 
     function withTimeout(promise, ms, what) {
         return new Promise(function (resolve, reject) {
@@ -42,6 +44,29 @@
     function launch(appId) {
         return withTimeout(new Promise(function (resolve, reject) {
             tizen.application.launch(appId, resolve, reject);
+        }), 8000, 'Launch');
+    }
+
+    /*
+     * EXPERIMENTAL (Settings → Avancé). Launches through an app control with a reply listener:
+     * Tizen answers the caller when the launched app ends, and the launcher relaunches itself
+     * to come back to the front. Nothing runs meanwhile (the launcher's JavaScript is paused in
+     * the background), so the app gets the same CPU and memory as a plain launch. Whether the
+     * answer arrives depends on how each app exits; if it never does, this behaves like launch().
+     */
+    var MIN_SESSION_MS = 4000; // an answer sooner than this is the app acknowledging, not closing
+
+    function launchReturning(appId) {
+        var started = Date.now();
+        var back = function () {
+            var self = selfAppId();
+            if (!self || Date.now() - started < MIN_SESSION_MS) return;
+            try { tizen.application.launch(self); } catch (e) { /* stay where we are */ }
+        };
+        return withTimeout(new Promise(function (resolve, reject) {
+            var control = new tizen.ApplicationControl('http://tizen.org/appcontrol/operation/default');
+            tizen.application.launchAppControl(control, appId, resolve, reject,
+                { onsuccess: back, onfailure: back });
         }), 8000, 'Launch');
     }
 
@@ -84,10 +109,34 @@
         return out;
     }
 
-    function allSorted(apps, showEverything) {
+    /*
+     * pinned: the Home items. Their label and brand carry over, so an app reads the same in both
+     * places ("Moonlight", not the store's "MoonlightNaCl"). Some TVs also hold two copies of one
+     * app (a preloaded org.tizen.netflix-app and the store's Netflix): outside "show everything",
+     * one entry per name is kept, the one pinned on Home if either is.
+     *
+     * hidden: ids the viewer chose to hide. Left out, except under "show everything", where they
+     * come back marked so they can be shown again.
+     */
+    function allSorted(apps, showEverything, pinned, hidden) {
+        hidden = hidden || [];
+        var onHome = {};
+        (pinned || []).forEach(function (p) { onHome[p.id] = { label: p.label, brand: p.brand && p.brand.key }; });
+        var seen = {};
         return apps
-            .filter(function (a) { return showEverything ? a.show : isConsumer(a); })
-            .map(function (a) { return toItem(a, {}); })
+            .filter(function (a) { return showEverything ? a.show : isConsumer(a) && hidden.indexOf(a.id) < 0; })
+            .map(function (a) {
+                var item = toItem(a, onHome[a.id] || {});
+                item.hidden = hidden.indexOf(a.id) >= 0;
+                return item;
+            })
+            .sort(function (x, y) { return (onHome[y.id] ? 1 : 0) - (onHome[x.id] ? 1 : 0); })
+            .filter(function (item) {
+                var key = item.label.toLowerCase();
+                if (!showEverything && seen[key]) return false;
+                seen[key] = true;
+                return true;
+            })
             .sort(function (x, y) { return x.label.localeCompare(y.label); });
     }
 
@@ -121,6 +170,7 @@
         allSorted: allSorted,
         describe: describe,
         launch: launch,
+        launchReturning: launchReturning,
         withTimeout: withTimeout
     };
 })();

@@ -35,6 +35,7 @@ window.LAUNCHER_CONFIG = {
     //   'inapp'          show the input full screen inside the launcher (Back returns)
     inputMethod: 'switch+viewer',
 
+    // Date and interface language: 'en-GB' | 'es-ES' | 'fr-FR' (js/i18n.js). Also in Settings → Appearance.
     locale: 'en-GB',
 
     theme: {
@@ -44,13 +45,10 @@ window.LAUNCHER_CONFIG = {
     },
 
     /*
-     * Weather shown in the screen saver's corner, from Open-Meteo. No API key and nothing to
-     * keep secret, so this is the whole setup: put your own coordinates here (two decimals is
-     * plenty, and is also about as precise as you want a public request to be). Leave them null
-     * and the widget never appears.
-     *
-     * There is no Settings page for this on purpose — the TV does not move, and coordinates are
-     * not something you type with a remote.
+     * Weather next to the date on Home and in the screen saver's corner, from Open-Meteo. No API
+     * key and nothing to keep secret. The usual setup is Settings → Weather, which searches for a
+     * city by name and remembers it on the TV. Coordinates here are only the starting default
+     * (two decimals is plenty); leave them null and the widget stays off until a city is chosen.
      */
     weather: {
         latitude: null,

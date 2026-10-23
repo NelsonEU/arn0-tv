@@ -22,7 +22,8 @@ window.BRANDS = [
     // Consoles (used by inputs in config.js)
     { key: 'playstation', mark: 'playstation', bg: 'linear-gradient(135deg,#00205c,#0070d1)', fg: '#fff' },
     { key: 'xbox', mark: 'xbox', bg: 'linear-gradient(135deg,#0a3a0a,#16a016)', fg: '#fff' },
-    { key: 'switch', mark: 'nintendoswitch', bg: 'linear-gradient(135deg,#b3000e,#ff2a2a)', fg: '#fff' }
+    { key: 'switch', mark: 'nintendoswitch', bg: 'linear-gradient(135deg,#b3000e,#ff2a2a)', fg: '#fff' },
+    { key: 'chromecast', match: /chromecast|google ?tv/i, mark: 'chromecast', bg: 'linear-gradient(135deg,#0b57d0,#4c8df6)', fg: '#fff' }
 ];
 
 window.findBrand = function (keyOrApp) {

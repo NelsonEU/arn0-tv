@@ -126,14 +126,49 @@ h1, h2 {
 }
 
 #date {
+    text-shadow: 0 1px 16px rgba(0, 0, 0, 0.45);
     margin-top: 14px;
     font-size: 34px;
     font-weight: 500;
     color: var(--muted);
 }
 
+.date-row {
+    display: flex;
+    align-items: center;
+    margin-top: 14px;
+}
+
+.date-row #date {
+    margin: 0 36px 0 0;
+}
+
+.home-wx {
+    text-shadow: 0 1px 16px rgba(0, 0, 0, 0.45);
+    display: flex;
+    align-items: center;
+    font-size: 34px;
+    font-weight: 500;
+    color: var(--muted);
+}
+
+.home-wx-icon svg {
+    display: block;
+    width: 40px;
+    height: 44px;
+    margin-right: 10px;
+    color: var(--fg);
+}
+
+.home-wx-temp {
+    margin-right: 14px;
+    color: var(--fg);
+}
+
+
 /* Appearance options */
 .no-date #date { display: none; }
+.no-weather #home-wx { display: none; }
 .names-never .app .label,
 .names-focused .app .label { visibility: hidden; }
 .names-focused .app.focused .label { visibility: visible; }
@@ -192,6 +227,8 @@ h1, h2 {
     font-size: 26px;
     font-weight: 500;
     color: var(--faint);
+    /* Keeps names readable over busy photos. */
+    text-shadow: 0 1px 14px rgba(0, 0, 0, 0.55);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -225,7 +262,7 @@ h1, h2 {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 60px;
+    font-size: 52px;
     font-weight: 800;
     letter-spacing: -1px;
 }
@@ -249,11 +286,16 @@ h1, h2 {
     position: absolute;
     top: 50%;
     left: 50%;
-    width: 120px;
-    height: 120px;
-    margin: -60px 0 0 -60px;
+    width: 136px;
+    height: 136px;
+    margin: -68px 0 0 -68px;
+    border-radius: 18px;
     object-fit: contain;
 }
+
+/* Hidden from All apps, listed only under "show everything". */
+.app.is-hidden .tile,
+.app.is-hidden .label { opacity: 0.4; }
 
 .all-tile {
     background: rgba(255, 255, 255, 0.08);
@@ -266,6 +308,20 @@ h1, h2 {
     width: 64px;
     height: 64px;
     margin: -32px 0 0 -32px;
+}
+
+/* Opaque square icon: full tile height, centred, its left and right edges faded into the tile
+   colour (sampled from that edge) so a gradient background shows no seam. */
+.tile .icon.full {
+    top: 0;
+    left: 50%;
+    width: auto;
+    height: 100%;
+    margin: 0;
+    border-radius: 0;
+    transform: translateX(-50%);
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 22%, #000 78%, transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 22%, #000 78%, transparent);
 }
 
 /* Input tiles */
@@ -338,7 +394,7 @@ h1, h2 {
     border-radius: 50%;
     color: var(--muted);
     will-change: transform;
-    transition: transform 0.1s ease-out;
+    transition: transform 0.16s cubic-bezier(0.3, 1.35, 0.5, 1);
 }
 
 .gear svg {
@@ -485,6 +541,19 @@ h1, h2 {
     margin-bottom: 14px;
 }
 
+/* Appearance has more groups than fit one column at 1080p: balance them over two. */
+#appearance-body {
+    -webkit-column-count: 2;
+    column-count: 2;
+    -webkit-column-gap: 80px;
+    column-gap: 80px;
+}
+
+#appearance-body .setting-block {
+    -webkit-column-break-inside: avoid;
+    break-inside: avoid;
+}
+
 .setting-block h2,
 .ed-col h2 {
     margin-bottom: 22px;
@@ -626,13 +695,14 @@ h1, h2 {
     border-radius: 10px;
 }
 
-.mini .wordmark { font-size: 22px; letter-spacing: 0; }
+.mini .wordmark { font-size: 17px; letter-spacing: 0; }
 .mini .mono { font-size: 22px; letter-spacing: 0; }
 
 .mini .icon {
-    width: 40px;
-    height: 40px;
-    margin: -20px 0 0 -20px;
+    width: 44px;
+    height: 44px;
+    margin: -22px 0 0 -22px;
+    border-radius: 8px;
 }
 
 /* Pop-up menu */
@@ -823,6 +893,99 @@ html.preview, html.preview body {
     color: #e6e8ee;
     font-weight: 600;
 }
+
+/* ---------- tvOS style (Settings → Apparence → Style) ----------
+ * Lift and sheen instead of the focus ring, softer titles, an entrance on cold start, a pill
+ * toast and a hint bar that fades when the remote is idle. Transform, opacity and box-shadow
+ * only, plus one static gradient on the focused tile.
+ */
+@keyframes rise {
+    from { opacity: 0; transform: translateY(28px); }
+    to { opacity: 1; transform: none; }
+}
+
+.style-tvos #home .clock,
+.style-tvos #home .shelf {
+    animation: rise 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.style-tvos #home #apps-section { animation-delay: 0.12s; }
+.style-tvos #home #inputs-section { animation-delay: 0.24s; }
+
+.style-tvos .shelf h2 {
+    margin-bottom: 24px;
+    font-size: 28px;
+    letter-spacing: 0.01em;
+    text-transform: none;
+    color: rgba(244, 245, 247, 0.72);
+    text-shadow: 0 1px 16px rgba(0, 0, 0, 0.35);
+}
+
+.style-tvos #time { text-shadow: 0 2px 30px rgba(0, 0, 0, 0.3); }
+
+.style-tvos .tile {
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08), 0 14px 34px rgba(0, 0, 0, 0.38);
+}
+
+.style-tvos .row-track .tile {
+    transition: transform 0.16s cubic-bezier(0.3, 1.35, 0.5, 1);
+}
+
+.style-tvos .app .label { color: rgba(244, 245, 247, 0.72); }
+
+.style-tvos .app.focused .label { color: var(--fg); font-weight: 700; }
+
+.style-tvos .tile::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    border-radius: inherit;
+    background: linear-gradient(160deg, rgba(255, 255, 255, 0.32) 0%, rgba(255, 255, 255, 0.08) 34%, rgba(255, 255, 255, 0) 58%);
+    box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.22);
+    opacity: 0;
+    transition: opacity 0.18s ease-out;
+    pointer-events: none;
+}
+
+.style-tvos .app.focused .tile,
+.style-tvos .input.focused .tile {
+    transform: scale(1.1);
+    box-shadow: 0 34px 70px rgba(0, 0, 0, 0.6), 0 12px 24px rgba(0, 0, 0, 0.35);
+}
+
+.style-tvos .app.focused .tile::after,
+.style-tvos .input.focused .tile::after {
+    opacity: 1;
+}
+
+.style-tvos .app.pressed .tile,
+.style-tvos .input.pressed .tile {
+    transform: scale(1.03);
+}
+
+.style-tvos #toast {
+    left: 0;
+    right: 0;
+    margin: 0 auto;
+    width: -webkit-fit-content;
+    width: fit-content;
+    max-width: 1100px;
+    padding: 20px 40px;
+    border-radius: 999px;
+    background: rgba(32, 34, 41, 0.94);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+    font-weight: 600;
+    transform: translateY(24px) scale(0.96);
+    transition: opacity 0.22s ease-out, transform 0.28s cubic-bezier(0.3, 1.35, 0.5, 1);
+}
+
+.style-tvos #toast.visible { transform: none; }
+
+.style-tvos .hints { transition: opacity 0.6s ease-out; }
+.style-tvos .hints.idle { opacity: 0; }
 
 /*
  * Render probe stage (Lab only). Deliberately breaks the performance rules above: that is the
