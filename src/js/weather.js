@@ -43,6 +43,10 @@
             clear: 'Clear', cloudy: 'Cloudy', fog: 'Fog', drizzle: 'Drizzle',
             rain: 'Rain', showers: 'Showers', snow: 'Snow', storm: 'Thunderstorm'
         },
+        'cs-CZ': {
+            clear: 'Jasno', cloudy: 'Zataženo', fog: 'Mlha', drizzle: 'Mrholení',
+            rain: 'Déšť', showers: 'Přeháňky', snow: 'Sněžení', storm: 'Bouřka'
+        },
         'es-ES': {
             clear: 'Despejado', cloudy: 'Nublado', fog: 'Niebla', drizzle: 'Llovizna',
             rain: 'Lluvia', showers: 'Chubascos', snow: 'Nieve', storm: 'Tormenta'

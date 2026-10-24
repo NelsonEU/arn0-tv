@@ -136,7 +136,7 @@ src/                  everything that goes into the .wgt
   js/wallpaper.js     wallpaper display and rotation
   js/screensaver.js   idle screen saver: photos, slow zoom, clock
   js/appearance.js    clock, date, font and style settings
-  js/i18n.js          interface translations (English keys; Español, Français)
+  js/i18n.js          interface translations (English keys; Čeština, Español, Français)
   js/compat.js        small polyfills for older TV engines (Chromium 56 on Tizen 4)
   css/compat.css      fallbacks for engines without CSS grid or flex gap
   js/weather.js       Open-Meteo reading and city search (Home and screen saver)
@@ -164,7 +164,7 @@ Saved on the TV in `localStorage`. They survive restarts and in-place updates, n
 - **Consoles** — per console: rename (on-screen keyboard), HDMI port, logo, how it opens, hide,
   reorder, remove; plus add a console.
 - **Appearance** — 24/12-hour clock, date shown/hidden, language for the date and the interface
-  (English, Español, Français), font, app names (always / when selected / never), style (Original,
+  (English, Čeština, Español, Français), font, app names (always / when selected / never), style (Original,
   or tvOS: focused tiles lift with a sheen instead of the ring), app order (manual, or recently
   opened first) and the weather next to the date.
 - **Weather** — type a city with the on-screen keyboard and pick it from the matches; °C or °F;

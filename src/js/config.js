@@ -35,7 +35,7 @@ window.LAUNCHER_CONFIG = {
     //   'inapp'          show the input full screen inside the launcher (Back returns)
     inputMethod: 'switch+viewer',
 
-    // Date and interface language: 'en-GB' | 'es-ES' | 'fr-FR' (js/i18n.js). Also in Settings → Appearance.
+    // Date and interface language: 'en-GB' | 'cs-CZ' | 'es-ES' | 'fr-FR' (js/i18n.js). Also in Settings → Appearance.
     locale: 'en-GB',
 
     theme: {
