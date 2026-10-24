@@ -38,6 +38,7 @@
             'Switching to {0}…': 'Passage sur {0}…',
             'Could not switch to {0}: {1}': 'Impossible de passer sur {0} : {1}',
             'Could not list apps: {0}': 'Impossible de lister les apps : {0}',
+            'Live TV': 'TV en direct',
 
             // Settings overview
             'Background': 'Fond d’écran',
@@ -203,6 +204,7 @@
             'Switching to {0}…': 'Cambiando a {0}…',
             'Could not switch to {0}: {1}': 'No se pudo cambiar a {0}: {1}',
             'Could not list apps: {0}': 'No se pudieron listar las apps: {0}',
+            'Live TV': 'TV en directo',
 
             'Background': 'Fondo',
             'Apps on Home': 'Apps en Inicio',
@@ -357,6 +359,7 @@
             'Switching to {0}…': 'Přepínám na {0}…',
             'Could not switch to {0}: {1}': 'Nelze přepnout na {0}: {1}',
             'Could not list apps: {0}': 'Nelze načíst seznam aplikací: {0}',
+            'Live TV': 'Živé vysílání',
 
             'Background': 'Pozadí',
             'Apps on Home': 'Aplikace na Domů',

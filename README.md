@@ -245,6 +245,10 @@ copies of one app (a preloaded `org.tizen.netflix-app` next to the store's Netfl
 and apps pinned on Home keep their Home name. The id of the focused app is shown bottom-left — pin it in `config.js` as `{ id: '...' }`,
 which is more reliable than a name match.
 
+Samsung's own TV viewer (`org.tizen.tv-viewer`: antenna, cable and satellite channels) is listed as
+**Live TV**, so a tile for broadcast television can be added from Settings → Apps on Home like any
+app, or pinned in `config.js` with `brand: 'livetv'`.
+
 ### HDMI inputs
 
 `tizen.systeminfo.getPropertyValue('VIDEOSOURCE')` lists the ports and `tizen.tvwindow.setSource()`

@@ -9,6 +9,10 @@
  *   brand                             optional key from js/brands.js (otherwise guessed from the name)
  * Entries that match nothing are skipped.
  *
+ * Live TV (antenna, cable, satellite) is Samsung's own viewer, which the launcher lists as an app:
+ *   { id: 'org.tizen.tv-viewer', label: 'Live TV', brand: 'livetv' }
+ * It is also under All apps and Add apps, so a tile can be added from Settings instead.
+ *
  * inputs: HDMI ports shown in the second row. Set `hdmi` to the port each device is plugged into.
  */
 window.LAUNCHER_CONFIG = {

@@ -2,14 +2,20 @@
 (function () {
     'use strict';
 
+    var t = function () { return I18n.t.apply(null, arguments); };
+
     // Samsung's `show` flag still lets many services through (e.g. ep-dataservice-app).
     // Store apps have ids like "AbCdEfGhIj.Name"; a few consumer apps ship preinstalled with system ids.
     var STORE_ID = /^[A-Za-z0-9]{10}\.[A-Za-z0-9_-]+$/;
     var NUMERIC_ID = /^\d{9,13}$/;
     var PRELOADED = [
         'org.tizen.netflix-app', 'org.tizen.primevideo', 'org.tizen.apple.apple-music',
-        'org.tizen.browser', 'com.samsung.tv.aria-video'
+        'org.tizen.browser', 'com.samsung.tv.aria-video', 'org.tizen.tv-viewer'
     ];
+    // Preinstalled apps whose own name is an internal one. English keys, translated by t().
+    var NAMES = {
+        'org.tizen.tv-viewer': 'Live TV'       // Samsung's viewer: antenna, cable or satellite channels
+    };
     var INTERNAL = [
         'adplatform.ADPlayer', 'WykOS4t4F0.cmsWebApp', '25emanual3.emanual',
         'ZODRT12q2l.WebAccountExtension', 'ByJlgt0XeD.CastSettingsApp', 'tv6pbVMQFF.PrivacyChoices',
@@ -151,7 +157,7 @@
         return {
             kind: 'app',
             id: app.id,
-            label: entry.label || shortName(app.name),
+            label: entry.label || (NAMES[app.id] ? t(NAMES[app.id]) : shortName(app.name)),
             brand: entry.brand ? findBrand(entry.brand) : findBrand(app),
             iconPath: app.iconPath || ''
         };
