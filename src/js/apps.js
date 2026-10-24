@@ -17,7 +17,9 @@
     ];
     // Not 'launcher': CANAL+ and Prime Video ship as QmpwflxWdt.CanalPlusLauncher and
     // evKhCgZelL.AmazonIgnitionLauncher2; this launcher is already left out by its own id.
-    var NOISE = /service|worker|preview|promotion|plugin|test|sdk|^ep[ -]|factory|daemon|dummy|agent|e-?manual|account|adplayer|privacy|security/i;
+    // 'test' only after a separator or as 'testsuite' (org.tizen.sound-test, YouTubeTestSuite):
+    // Czech Television's iVysílání ships as j7L028mExx.ivysilaniTest and is a real app.
+    var NOISE = /service|worker|preview|promotion|plugin|[\s.-]test|testsuite|sdk|^ep[ -]|factory|daemon|dummy|agent|e-?manual|account|adplayer|privacy|security/i;
 
     function withTimeout(promise, ms, what) {
         return new Promise(function (resolve, reject) {
