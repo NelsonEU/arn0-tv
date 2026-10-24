@@ -28,6 +28,11 @@
         app('DaznApp000.DAZN', 'DAZN'),
         app('RtveTvApp0.RTVEPlay', 'RTVE Play'),
         app('Atresplay0.atresplayer', 'atresplayer'),
+        app('JIFtSZfRwy.voyoTizenCZ', 'Oneplay'),
+        app('MoonfinApp.moonfin', 'Moonfin'),
+        app('sLZ6zpyDlX.iPrimaTizen', 'Prima+'),
+        app('j7L028mExx.ivysilaniTest', 'iVysílání ČT'),
+        app('org.tizen.tv-viewer', 'tv-viewer', false),
         app('org.tizen.browser', 'Internet'),
         // Noise that the consumer filter should hide
         app('com.samsung.tv.ep-dataservice-app', 'ep-dataservice-app'),

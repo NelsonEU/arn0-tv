@@ -1,8 +1,8 @@
 /*
  * Weather for the screen saver, from Open-Meteo. No API key, free for non-commercial use.
  *
- * Coordinates come from js/config.js and default to null, which disables the widget entirely.
- * They are not a Settings page: the TV does not move, and nobody types coordinates with a remote.
+ * The place is picked in Settings → Weather by typing a city name (Open-Meteo geocoding), and kept
+ * in Prefs. js/config.js coordinates only seed the default. No place disables the widget.
  *
  * There is no polling. A TV launcher spends most of its life in the background with JavaScript
  * paused, so a timer would be both useless and rude; instead the reading is refreshed when
@@ -15,6 +15,7 @@
 
     var STORE_KEY = 'arn0.weather.v1';
     var ENDPOINT = 'https://api.open-meteo.com/v1/forecast';
+    var GEOCODER = 'https://geocoding-api.open-meteo.com/v1/search';
     var FRESH_MS = 60 * 60 * 1000;          // inside the hour, the cached reading will do
     var USABLE_MS = 3 * 60 * 60 * 1000;     // older than this counts as no reading at all
     var TIMEOUT_MS = 8000;
@@ -41,6 +42,10 @@
         'en-GB': {
             clear: 'Clear', cloudy: 'Cloudy', fog: 'Fog', drizzle: 'Drizzle',
             rain: 'Rain', showers: 'Showers', snow: 'Snow', storm: 'Thunderstorm'
+        },
+        'cs-CZ': {
+            clear: 'Jasno', cloudy: 'Zataženo', fog: 'Mlha', drizzle: 'Mrholení',
+            rain: 'Déšť', showers: 'Přeháňky', snow: 'Sněžení', storm: 'Bouřka'
         },
         'es-ES': {
             clear: 'Despejado', cloudy: 'Nublado', fog: 'Niebla', drizzle: 'Llovizna',
@@ -82,7 +87,7 @@
     // ---------- Configuration
 
     function cfg() {
-        return (window.LAUNCHER_CONFIG && window.LAUNCHER_CONFIG.weather) || {};
+        return Prefs.get().weather;
     }
 
     function configured() {
@@ -206,15 +211,78 @@
     function start() {
         load();
         if (!configured()) {
-            DevLog.log('Weather off: set weather.latitude and weather.longitude in js/config.js');
+            DevLog.log('Weather off: pick a city in Settings → Weather');
             return;
         }
         refresh();
     }
 
+    function getJson(u) {
+        return new Promise(function (resolve, reject) {
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', u, true);
+            xhr.timeout = TIMEOUT_MS;
+            xhr.onload = function () {
+                try {
+                    if (xhr.status < 200 || xhr.status >= 300) throw new Error('HTTP ' + xhr.status);
+                    resolve(JSON.parse(xhr.responseText));
+                } catch (e) {
+                    reject(e);
+                }
+            };
+            xhr.onerror = function () { reject(new Error('network')); };
+            xhr.ontimeout = function () { reject(new Error('timeout')); };
+            xhr.send();
+        });
+    }
+
+    // Resolves to [{ name, detail, latitude, longitude }], best match first.
+    function search(name) {
+        var lang = (Prefs.get().appearance.locale || 'fr').slice(0, 2);
+        return getJson(GEOCODER + '?count=6&format=json&language=' + lang + '&name=' + encodeURIComponent(name))
+            .then(function (data) {
+                return (data.results || []).map(function (r) {
+                    return {
+                        name: r.name,
+                        detail: [r.admin1, r.country].filter(Boolean).join(', '),
+                        latitude: r.latitude,
+                        longitude: r.longitude
+                    };
+                });
+            });
+    }
+
+    // The reading belongs to the old place or unit, so it goes; widgets hide until the new one lands.
+    function forget() {
+        reading = null;
+        store();
+        lastFailure = 0;
+        listeners.forEach(function (fn) { fn(); });
+        refresh(true);
+    }
+
+    // place: { name, latitude, longitude }, or null to turn the weather off.
+    function setPlace(place) {
+        var w = cfg();
+        w.city = place ? place.name : null;
+        w.latitude = place ? place.latitude : null;
+        w.longitude = place ? place.longitude : null;
+        Prefs.save();
+        forget();
+    }
+
+    function setUnit(unit) {
+        cfg().unit = unit;
+        Prefs.save();
+        forget();
+    }
+
     window.Weather = {
         start: start,
         refresh: refresh,
+        search: search,
+        setPlace: setPlace,
+        setUnit: setUnit,
         current: current,
         configured: configured,
         // Exposed so Home can reuse the same marks if weather ever moves there too.
@@ -226,7 +294,7 @@
                 label: 'Weather: fetch now and log the reading',
                 run: function () {
                     if (!configured()) {
-                        UI.toast('No coordinates in config.js');
+                        UI.toast('No city set: Settings → Weather');
                         return;
                     }
                     DevLog.log('Weather: requesting ' + url());

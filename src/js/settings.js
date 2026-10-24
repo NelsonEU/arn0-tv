@@ -5,6 +5,7 @@
     var $ = UI.$;
     var el = UI.el;
     var KEY = UI.KEY;
+    var t = I18n.t;
     var THUMB_COLS = 6;
 
     // Samsung's on-screen keyboard (IME) sends these for its Done / Cancel buttons.
@@ -20,6 +21,7 @@
         { key: 'playstation', label: 'PlayStation' },
         { key: 'xbox', label: 'Xbox' },
         { key: 'switch', label: 'Nintendo Switch' },
+        { key: 'chromecast', label: 'Chromecast' },
         { key: '', label: 'None' }
     ];
 
@@ -36,8 +38,8 @@
         entries.forEach(function (e) {
             var li = el('li', 'setting-row');
             if (e.mini) li.appendChild(e.mini);
-            li.appendChild(el('span', 'setting-label', e.label));
-            li.appendChild(el('span', 'setting-value', e.value || ''));
+            li.appendChild(el('span', 'setting-label', t(e.label)));
+            li.appendChild(el('span', 'setting-value', t(e.value || '')));
             li._item = e;
             list.appendChild(li);
         });
@@ -90,7 +92,7 @@
         DevLog.log('Open Samsung Home');
         Apps.launch(SAMSUNG_HOME).catch(function (err) {
             DevLog.log('Samsung Home failed: ' + DevLog.errorText(err));
-            UI.toast('Could not open Samsung Home: ' + DevLog.errorText(err));
+            UI.toast(t('Could not open Samsung Home: {0}', DevLog.errorText(err)));
         }).then(function () { opening = false; });
     }
 
@@ -99,7 +101,9 @@
     function wallpaperSummary() {
         var p = Prefs.get().wallpaper;
         if (p.mode === 'off') return 'Off';
-        if (p.mode === 'rotate') return 'Rotate · ' + Wallpaper.interval(p.interval).label.toLowerCase();
+        if (p.mode === 'rotate') {
+            return t(p.source === 'online' ? 'Online' : 'Rotate') + ' · ' + t(Wallpaper.interval(p.interval).label).toLowerCase();
+        }
         var w = Wallpaper.find(p.photo);
         return w ? w.title : 'Photo';
     }
@@ -109,9 +113,10 @@
         var shown = Home.inputs().filter(function (i) { return !i.hidden; }).length;
         return [
             { label: 'Background', value: wallpaperSummary(), run: function () { UI.show('bg'); } },
-            { label: 'Apps on Home', value: Home.homeItems().length + ' apps', run: function () { UI.show('homeapps'); } },
-            { label: 'Consoles', value: shown + ' on Home', run: function () { UI.show('consoles'); } },
-            { label: 'Appearance', value: Appearance.font(a.font).label + ' · ' + (a.clock === '12h' ? '12-hour' : '24-hour'), run: function () { UI.show('appearance'); } },
+            { label: 'Apps on Home', value: t('{0} apps', Home.homeItems().length), run: function () { UI.show('homeapps'); } },
+            { label: 'Consoles', value: t('{0} on Home', shown), run: function () { UI.show('consoles'); } },
+            { label: 'Appearance', value: Appearance.font(a.font).label + ' · ' + t(a.clock === '12h' ? '12-hour' : '24-hour'), run: function () { UI.show('appearance'); } },
+            { label: 'Weather', value: weatherSummary(), run: weatherMenu },
             { label: 'Navigation sound', value: soundSummary(), run: function () { UI.show('sound-settings'); } },
             { label: 'Screen saver', value: screensaverSummary(), run: function () { UI.show('screensaver-settings'); } },
             { label: 'Samsung Home', value: 'Smart Hub and TV settings', run: openSamsungHome },
@@ -122,7 +127,7 @@
     // ---------- Chips (Background, Appearance)
 
     function chip(label, on, item) {
-        var c = el('div', 'chip' + (on ? ' on' : ''), label);
+        var c = el('div', 'chip' + (on ? ' on' : ''), t(label));
         c._item = item;
         return c;
     }
@@ -150,6 +155,13 @@
             modes.appendChild(chip(m[1], p.mode === m[0], { kind: 'mode', key: m[0] }));
         });
 
+        var sources = $('bg-source');
+        sources.innerHTML = '';
+        [['builtin', 'Built-in'], ['online', 'Online, always new']].forEach(function (s) {
+            sources.appendChild(chip(s[1], p.source === s[0], { kind: 'source', key: s[0] }));
+        });
+        $('bg-source-block').classList.toggle('hidden', p.mode === 'off');
+
         var intervals = $('bg-interval');
         intervals.innerHTML = '';
         Wallpaper.INTERVALS.forEach(function (i) {
@@ -160,13 +172,13 @@
         var photos = $('bg-photos');
         photos.innerHTML = '';
         Wallpaper.list().forEach(function (w) {
-            var t = el('div', 'thumb' + (p.photo === w.key ? ' on' : ''));
+            var thumb = el('div', 'thumb' + (p.photo === w.key ? ' on' : ''));
             var img = new Image();
             img.src = w.thumb;
-            t.appendChild(img);
-            t.appendChild(el('div', 'thumb-title', w.title));
-            t._item = { kind: 'photo', key: w.key };
-            photos.appendChild(t);
+            thumb.appendChild(img);
+            thumb.appendChild(el('div', 'thumb-title', w.title));
+            thumb._item = { kind: 'photo', key: w.key };
+            photos.appendChild(thumb);
         });
         $('bg-photos-block').classList.toggle('hidden', p.mode !== 'photo');
     }
@@ -181,6 +193,12 @@
             p.lastChange = Date.now();
         } else if (item.kind === 'photo') {
             p.photo = item.key;
+        } else if (item.kind === 'source') {
+            p.source = item.key;
+            if (item.key === 'online') {
+                UI.toast('Fetching new photos…');
+                OnlineWallpapers.fill();
+            }
         }
         Prefs.save();
         Wallpaper.apply();
@@ -194,9 +212,12 @@
         return [
             { title: 'Clock', key: 'clock', options: [['24h', '24-hour'], ['12h', '12-hour']] },
             { title: 'Date', key: 'showDate', options: [[true, 'Show'], [false, 'Hide']] },
-            { title: 'Date language', key: 'locale', options: Appearance.LOCALES.map(function (l) { return [l.key, l.label]; }) },
+            { title: 'Language', key: 'locale', options: Appearance.LOCALES.map(function (l) { return [l.key, l.label]; }) },
             { title: 'Font', key: 'font', options: Appearance.FONTS.map(function (f) { return [f.key, f.label, f.family]; }) },
-            { title: 'App names', key: 'names', options: [['always', 'Always'], ['focused', 'When selected'], ['never', 'Never']] }
+            { title: 'App names', key: 'names', options: [['always', 'Always'], ['focused', 'When selected'], ['never', 'Never']] },
+            { title: 'Style', key: 'style', options: [['original', 'Original'], ['tvos', 'tvOS']] },
+            { title: 'App order', key: 'order', options: [['manual', 'Manual'], ['recent', 'Recent first']] },
+            { title: 'Weather on Home', key: 'homeWeather', options: [[true, 'Show'], [false, 'Hide']] }
         ];
     }
 
@@ -206,7 +227,7 @@
         body.innerHTML = '';
         appearanceBlocks().forEach(function (b) {
             var block = el('div', 'setting-block');
-            block.appendChild(el('h2', '', b.title));
+            block.appendChild(el('h2', '', t(b.title)));
             var chips = el('div', 'chips');
             b.options.forEach(function (o) {
                 var c = chip(o[1], p[b.key] === o[0], { key: b.key, value: o[0] });
@@ -223,15 +244,84 @@
         Prefs.save();
         Appearance.apply();
         Home.updateClock();
+        if (item.key === 'order' || item.key === 'locale') Home.render();
+        if (item.key === 'locale') UI.refreshHints();
         renderAppearance();
         UI.refresh();
+    }
+
+    // ---------- Weather
+
+    var renderOverview = null;
+    var renderAdvanced = null;
+
+    function weatherSummary() {
+        var w = Prefs.get().weather;
+        if (!Weather.configured()) return 'Off';
+        return (w.city || t('Custom location')) + ' · ' + (w.unit === 'fahrenheit' ? '°F' : '°C');
+    }
+
+    function weatherChanged() {
+        renderOverview();
+        UI.refresh();
+    }
+
+    function weatherMenu() {
+        var w = Prefs.get().weather;
+        var options = [
+            {
+                label: Weather.configured() ? t('Change city') + ' · ' + (w.city || t('Custom location')) : 'Choose a city',
+                run: askCity
+            },
+            {
+                label: t('Unit') + ' · ' + (w.unit === 'fahrenheit' ? '°F' : '°C'), run: function () {
+                    UI.menu('Unit', [['celsius', 'Celsius (°C)'], ['fahrenheit', 'Fahrenheit (°F)']].map(function (u) {
+                        return {
+                            label: u[1],
+                            checked: (w.unit || 'celsius') === u[0],
+                            run: function () { Weather.setUnit(u[0]); weatherChanged(); }
+                        };
+                    }));
+                }
+            }
+        ];
+        if (Weather.configured()) {
+            options.push({ label: 'Turn weather off', run: function () { Weather.setPlace(null); weatherChanged(); } });
+        }
+        options.push({ label: 'Cancel' });
+        UI.menu('Weather', options);
+    }
+
+    // Typed with the TV's keyboard, then picked from Open-Meteo's matches.
+    function askCity() {
+        rename(Prefs.get().weather.city || '', function (name) {
+            UI.toast(t('Searching for “{0}”…', name));
+            Weather.search(name).then(function (places) {
+                if (!places.length) {
+                    UI.toast(t('No city found for “{0}”', name));
+                    return;
+                }
+                UI.menu('Which city?', places.map(function (p) {
+                    return {
+                        label: p.name + (p.detail ? ' · ' + p.detail : ''),
+                        run: function () {
+                            Weather.setPlace(p);
+                            weatherChanged();
+                            UI.toast(t('Weather: {0}', p.name));
+                        }
+                    };
+                }).concat([{ label: 'Cancel' }]));
+            }).catch(function (err) {
+                UI.toast(t('Search failed: {0}', DevLog.errorText(err)));
+            });
+        }, 'City');
     }
 
     // ---------- Navigation sound
 
     function soundSummary() {
         var p = Prefs.get().sound;
-        return p.enabled ? 'On · ' + Sound.presetLabel() : 'Off';
+        return p.enabled ? t('On') + ' · ' + t(Sound.presetLabel()) : 'Off';
     }
 
     function renderSound() {
@@ -240,7 +330,7 @@
         body.innerHTML = '';
 
         var enabledBlock = el('div', 'setting-block');
-        enabledBlock.appendChild(el('h2', '', 'Sound'));
+        enabledBlock.appendChild(el('h2', '', t('Sound')));
         var enabledChips = el('div', 'chips');
         enabledChips.appendChild(chip('On', p.enabled, { kind: 'enabled', value: true }));
         enabledChips.appendChild(chip('Off', !p.enabled, { kind: 'enabled', value: false }));
@@ -248,7 +338,7 @@
         body.appendChild(enabledBlock);
 
         var presetBlock = el('div', 'setting-block');
-        presetBlock.appendChild(el('h2', '', 'Style'));
+        presetBlock.appendChild(el('h2', '', t('Style')));
         var presetChips = el('div', 'chips');
         Sound.presetOptions().forEach(function (preset) {
             presetChips.appendChild(chip(preset.label, p.preset === preset.key,
@@ -258,7 +348,7 @@
         body.appendChild(presetBlock);
 
         var previewBlock = el('div', 'setting-block');
-        previewBlock.appendChild(el('h2', '', 'Try it'));
+        previewBlock.appendChild(el('h2', '', t('Try it')));
         var previewChips = el('div', 'chips');
         previewChips.appendChild(chip('Preview selected sound', false, { kind: 'preview' }));
         previewBlock.appendChild(previewChips);
@@ -290,7 +380,7 @@
 
     function screensaverSummary() {
         var p = Prefs.get().screensaver;
-        return p.enabled ? 'After ' + Screensaver.delay().label : 'Off';
+        return p.enabled ? t('After {0}', t(Screensaver.delay().label)) : 'Off';
     }
 
     /*
@@ -319,7 +409,7 @@
         body.innerHTML = '';
         screensaverBlocks().forEach(function (b) {
             var block = el('div', 'setting-block');
-            block.appendChild(el('h2', '', b.title));
+            block.appendChild(el('h2', '', t(b.title)));
             var chips = el('div', 'chips');
             b.options.forEach(function (o) {
                 chips.appendChild(chip(o[1], p[b.key] === o[0], { key: b.key, value: o[0] }));
@@ -329,7 +419,7 @@
         });
 
         var tryBlock = el('div', 'setting-block');
-        tryBlock.appendChild(el('h2', '', 'Try it'));
+        tryBlock.appendChild(el('h2', '', t('Try it')));
         var tryChips = el('div', 'chips');
         tryChips.appendChild(chip('Show it now', false, { kind: 'preview' }));
         tryBlock.appendChild(tryChips);
@@ -357,7 +447,7 @@
         ed.items = Home.homeItems().slice();
         var onHome = {};
         ed.items.forEach(function (i) { onHome[i.id] = true; });
-        ed.others = Apps.allSorted(Home.apps(), false).filter(function (a) { return !onHome[a.id]; });
+        ed.others = Apps.allSorted(Home.apps(), false, ed.items, Prefs.get().hiddenApps).filter(function (a) { return !onHome[a.id]; });
     }
 
     function edRow(item, moving) {
@@ -375,8 +465,8 @@
         var other = $('ed-other');
         other.innerHTML = '';
         ed.others.forEach(function (item) { other.appendChild(edRow(item, false)); });
-        $('ed-home-title').textContent = 'On Home · ' + ed.items.length;
-        $('ed-other-title').textContent = 'Add apps · ' + ed.others.length;
+        $('ed-home-title').textContent = t('On Home') + ' · ' + ed.items.length;
+        $('ed-other-title').textContent = t('Add apps') + ' · ' + ed.others.length;
         if (!ed.others.length) ed.col = 0;
     }
 
@@ -447,7 +537,7 @@
                 ed.items.push(added);
                 edSave();
                 edRender();
-                UI.toast('Added ' + added.label + ' to Home');
+                UI.toast(t('Added {0} to Home', added.label));
             }
             edRefresh();
             return true;
@@ -504,14 +594,14 @@
     }
 
     function logoOf(input) {
-        return LOGOS.find(function (l) { return l.key === (input.brand || ''); }) || LOGOS[3];
+        return LOGOS.find(function (l) { return l.key === (input.brand || ''); }) || LOGOS[LOGOS.length - 1];
     }
 
     function consoleEntries() {
         var entries = Home.inputs().map(function (input, i) {
             return {
                 label: input.label,
-                value: input.hidden ? 'Hidden' : 'HDMI ' + input.hdmi + ' · ' + methodOf(input).label,
+                value: input.hidden ? 'Hidden' : 'HDMI ' + input.hdmi + ' · ' + t(methodOf(input).label),
                 mini: Home.miniInputTile(input),
                 run: function () { consoleMenu(i); }
             };
@@ -539,10 +629,10 @@
                 }
             },
             {
-                label: 'HDMI port · HDMI ' + c.hdmi, run: function () {
+                label: t('HDMI port') + ' · HDMI ' + c.hdmi, run: function () {
                     UI.menu('HDMI port', [1, 2, 3, 4].map(function (n) {
                         return {
-                            label: 'HDMI ' + n + (status[n] ? ' · connected' : ''),
+                            label: 'HDMI ' + n + (status[n] ? ' · ' + t('connected') : ''),
                             checked: n === c.hdmi,
                             run: function () { editInputs(function (l) { l[i].hdmi = n; }); }
                         };
@@ -550,7 +640,7 @@
                 }
             },
             {
-                label: 'Logo · ' + logoOf(c).label, run: function () {
+                label: t('Logo') + ' · ' + t(logoOf(c).label), run: function () {
                     UI.menu('Logo', LOGOS.map(function (logo) {
                         return {
                             label: logo.label,
@@ -561,10 +651,10 @@
                 }
             },
             {
-                label: 'Opens · ' + methodOf(c).label, run: function () {
+                label: t('Opens') + ' · ' + t(methodOf(c).label), run: function () {
                     UI.menu('Opens', METHODS.map(function (m) {
                         return {
-                            label: m.label + ' · ' + m.hint,
+                            label: t(m.label) + ' · ' + t(m.hint),
                             checked: m.key === methodOf(c).key,
                             run: function () { editInputs(function (l) { l[i].method = m.key; }); }
                         };
@@ -584,7 +674,7 @@
         }
         options.push({
             label: 'Remove', run: function () {
-                UI.menu('Remove ' + c.label + '?', [
+                UI.menu(t('Remove {0}?', c.label), [
                     { label: 'Remove', run: function () { editInputs(function (l) { l.splice(i, 1); }); } },
                     { label: 'Cancel' }
                 ]);
@@ -607,8 +697,9 @@
 
     var renameDone = null;
 
-    function rename(current, done) {
+    function rename(current, done, title) {
         renameDone = done;
+        $('rename-title').textContent = t(title || 'Name');
         $('rename-input').value = current;
         UI.show('rename');
     }
@@ -655,6 +746,16 @@
                 ]);
             }
         });
+        entries.push({
+            label: 'Return here after an app',
+            value: t(Prefs.get().returnHere ? 'On' : 'Off') + ' · ' + t('experimental'),
+            run: function () {
+                Prefs.get().returnHere = !Prefs.get().returnHere;
+                Prefs.save();
+                renderAdvanced();
+                UI.refresh();
+            }
+        });
         entries.push({ label: 'Lab', value: 'Developer tests', run: function () { UI.show('lab'); } });
         return entries;
     }
@@ -662,9 +763,9 @@
     // ---------- Registration
 
     function init() {
-        registerList('settings', overviewEntries,
+        renderOverview = registerList('settings', overviewEntries,
             [['OK', 'Change'], ['◀ ▶', 'Switch column'], ['Back', 'Home']], true);
-        registerList('advanced', advancedEntries, [['OK', 'Run'], ['Back', 'Settings']]);
+        renderAdvanced = registerList('advanced', advancedEntries, [['OK', 'Run'], ['Back', 'Settings']]);
         renderConsoles = registerList('consoles', consoleEntries,
             [['OK', 'Options'], ['Back', 'Settings']]);
 

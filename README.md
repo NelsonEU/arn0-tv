@@ -135,8 +135,11 @@ src/                  everything that goes into the .wgt
   js/inputs.js        HDMI via tizen.systeminfo + tizen.tvwindow
   js/wallpaper.js     wallpaper display and rotation
   js/screensaver.js   idle screen saver: photos, slow zoom, clock
-  js/appearance.js    clock, date and font settings
-  js/weather.js       Open-Meteo reading for the screen saver corner
+  js/appearance.js    clock, date, font and style settings
+  js/i18n.js          interface translations (English keys; Čeština, Español, Français)
+  js/compat.js        small polyfills for older TV engines (Chromium 56 on Tizen 4)
+  css/compat.css      fallbacks for engines without CSS grid or flex gap
+  js/weather.js       Open-Meteo reading and city search (Home and screen saver)
   js/prefs.js         settings saved on the TV
   js/ui.js            screens, focus, keys, toast, pop-up menu
   js/home.js          Home, All apps, Lab
@@ -160,8 +163,12 @@ Saved on the TV in `localStorage`. They survive restarts and in-place updates, n
 - **Apps on Home** — OK on an app opens Move / Remove; OK on the right-hand slot adds one.
 - **Consoles** — per console: rename (on-screen keyboard), HDMI port, logo, how it opens, hide,
   reorder, remove; plus add a console.
-- **Appearance** — 24/12-hour clock, date shown/hidden, date language (English, Español, Français),
-  font, app names (always / when selected / never).
+- **Appearance** — 24/12-hour clock, date shown/hidden, language for the date and the interface
+  (English, Čeština, Español, Français), font, app names (always / when selected / never), style (Original,
+  or tvOS: focused tiles lift with a sheen instead of the ring), app order (manual, or recently
+  opened first) and the weather next to the date.
+- **Weather** — type a city with the on-screen keyboard and pick it from the matches; °C or °F;
+  turn it off.
 - **Navigation sound** — turn arrow-key sounds on or off, choose Soft, Warm or Bright, and preview
   the selected tone.
 - **Screen saver** — on or off, start after 3/5/10/15 min idle on Home, photo change every
@@ -170,9 +177,19 @@ Saved on the TV in `localStorage`. They survive restarts and in-place updates, n
 - **Samsung Home** — opens `com.samsung.tv.csfs`, from which TV settings are one press away.
   Opening `com.samsung.tv.coba.setting` directly does not work on this TV. Keep this entry: it is
   the route back if you have redirected the Home button.
-- **Advanced** — refresh the app list, export settings to the log, reset everything, Lab.
+- **Advanced** — refresh the app list, export settings to the log, reset everything, an
+  experimental *Return here after an app* (launches through an app control and brings the launcher
+  back when the app reports it has closed; apps that never report it behave as before), Lab.
 
 ### Wallpapers
+
+**Settings → Background → Photos → Online** swaps the built-in set for an endless stream of
+landscapes from Wikimedia Commons (*Featured pictures of landscapes*: curated, freely licensed, no
+API key; each credit names the author and licence). The launcher bakes the same readability scrim
+into each photo on a canvas, once, and keeps six ready, adding new ones as the rotation advances.
+Chromium 56 encodes that JPEG on the main thread (~0.9 s a photo on a UE50NU7025), so a photo is
+only prepared while the launcher is in front and the remote has been still for 8 s; never while
+another app is in front. Offline, the built-in set stands in.
 
 Photos are cropped to 1920x1080 and darkened (top-left for the clock, bottom for the tiles) at
 build time, so the TV only ever draws one plain JPEG on its own layer. Drop photos in a folder and
@@ -186,10 +203,11 @@ After a few minutes with no input on Home it shows the wallpapers full screen wi
 weather and the photo's name in the corners. Any button closes it, and that press does nothing else. It never
 appears over a console input, another screen or the hidden game.
 
-The weather is off until you put coordinates in `config.local.js` (see **What you can change**). It comes from
-[Open-Meteo](https://open-meteo.com/), which needs no API key, and there is deliberately no
-Settings page for it: the TV does not move, and coordinates are not something you type with a
-remote. The reading is cached in `localStorage` so the screen saver opens with real numbers even
+The weather is off until a city is chosen in **Settings → Weather** (coordinates in
+`config.local.js` still work as the starting default). It comes from
+[Open-Meteo](https://open-meteo.com/), which needs no API key; the city search uses its geocoding
+endpoint, so nobody types coordinates with a remote. The same reading also sits next to the date on
+Home. The reading is cached in `localStorage` so the screen saver opens with real numbers even
 after the TV has been off, it refreshes at most once an hour and only when something is about to
 show it, and anything older than three hours is treated as no reading at all — an unattended
 screen should go blank rather than state yesterday's temperature as if it were now.
@@ -221,8 +239,15 @@ or not the panel keeps up. Judge it by eye on the TV.
 `getAppsInfo` reports many internal services as visible, so **All apps** keeps only ids that look
 like store apps (`AbCdEfGhIj.Name`, or numeric) plus a short list of preinstalled consumer apps, and
 drops names containing service/worker/agent/e-manual. Yellow shows everything when you need to find
-something. The id of the focused app is shown bottom-left — pin it in `config.js` as `{ id: '...' }`,
+something. Green on an app hides it from All apps and Add apps (a duplicate, a preloaded app that
+cannot be uninstalled); hidden apps show dimmed under Yellow, where Green brings them back. Two
+copies of one app (a preloaded `org.tizen.netflix-app` next to the store's Netflix) are listed once,
+and apps pinned on Home keep their Home name. The id of the focused app is shown bottom-left — pin it in `config.js` as `{ id: '...' }`,
 which is more reliable than a name match.
+
+Samsung's own TV viewer (`org.tizen.tv-viewer`: antenna, cable and satellite channels) is listed as
+**Live TV**, so a tile for broadcast television can be added from Settings → Apps on Home like any
+app, or pinned in `config.js` with `brand: 'livetv'`.
 
 ### HDMI inputs
 
