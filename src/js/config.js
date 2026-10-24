@@ -35,6 +35,11 @@ window.LAUNCHER_CONFIG = {
     //   'inapp'          show the input full screen inside the launcher (Back returns)
     inputMethod: 'switch+viewer',
 
+    // Optional LAN JPEG relay; keep both disabled unless a private, access-restricted
+    // snapshot service exists. Put real address/IDs in gitignored config.local.js.
+    cameraServer: null,
+    cameras: [],
+
     locale: 'en-GB',
 
     theme: {

@@ -13,5 +13,10 @@ window.LAUNCHER_LOCAL = {
     // Receives Lab logs; see scripts/devlog-server.mjs.
     // devLogUrl: null,
 
+    // The camera viewer expects a LAN JPEG relay, not raw RTSP or cloud/P2P camera URLs.
+    // Use an RFC1918 IPv4 address and a restricted local service; see docs/cameras.md.
+    // cameraServer: 'http://<RELAY_LAN_IP>:<PORT>',
+    // cameras: ['front', 'back'], // opaque relay IDs, not credentials
+
     // locale: 'fr-FR',
 };

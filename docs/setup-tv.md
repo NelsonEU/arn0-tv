@@ -5,10 +5,11 @@ reversible by uninstalling it. The second changes which app the TV treats as Hom
 power-on, which is reversible only if you keep a baseline. Read the second half completely before
 running any part of it.
 
-**Everything here was tested on one TV.** The native helpers check for a 32-bit process, UID 901,
-and the expected firmware string. They do not check the TV's model, and a matching firmware string
-does not prove another model is compatible. Do not weaken or change these guards to make the
-helper run elsewhere; the calls have not been validated on other hardware.
+**The original method was tested on one reference TV; a second exact build is listed below.**
+The native helpers require a 32-bit process, UID 901 and one of the listed firmware strings.
+They do not check the TV's retail model, and matching firmware text does not prove another
+model is compatible. Do not add a firmware string without reading the exact TV, saving its
+baseline and verifying recovery first.
 
 ## Reference device
 
@@ -20,8 +21,22 @@ helper run elsewhere; the calls have not been validated on other hardware.
 | Launcher app id | `Arn0Lnchr0.Launcher` |
 | Developer user | UID 901, no root |
 
-No compatibility claim for any other model, year or firmware. Tizen 7/8/9 TVs, The Frame, and
-other regions' firmware are all untested here.
+No compatibility claim for other models, years or firmware. Tizen 7/8/9 TVs, The Frame, and
+unlisted regional variants remain untested here.
+
+### Additional observed build (not a universal compatibility promise)
+
+On `QN70Q65BAGXZD` with `T-NKLBUABC-1720.7` (32-bit/UID 901), a guarded,
+per-device runner completed read-only query, saved and verified an off-TV
+snapshot, performed an idempotent restore of the original settings, then
+applied the Home redirect once. An independent read-back confirmed the new
+`main` operation and Home-related keys; the owner tested the physical Home
+button from another app and it opened Arn0. Cold-boot behavior and a full
+rollback **from the redirected state** were not tested. The runner is not
+included in this repository, and the retail model is not checked inside
+`Query.cs`/`Control.cs`—verify it independently before running either helper.
+The firmware guard for this build is intentionally exact; do not generalize
+it to a version family. See the [validation checklist](native-home-validation.md).
 
 ## Part 1 — install the launcher
 
@@ -81,7 +96,11 @@ It reads three further keys (`db/appfw/startup_appid`, `db/appfw/booting_appid_b
 `auto_start` was already `1` and remains `1`. The Home-button behavior was tested; the helper does
 not itself configure power-on behavior. Do not infer that setting `auto_start` to `1` is sufficient
 for startup on another model or firmware. If the saved value is `0`, stop before applying and
-research that configuration separately.
+research that configuration separately. On another TV, an independent query observed
+`startup_appid` and `booting_appid_backup` changing as a platform side effect when the
+`main` operation changed, despite `apply` not writing those keys directly. Do not assume
+those values stay at the baseline: query all keys again after apply and account for the
+actual values in the recovery plan. See the [cross-device validation checklist](native-home-validation.md).
 
 Safety properties worth knowing before you trust it:
 
@@ -177,7 +196,8 @@ before assuming the state is what you left.
 The honest summary: Part 1 transfers to any Tizen TV with modest effort. Part 2 does not transfer —
 it transfers as a *method*. The method is: find the keys read-only, save a baseline, write the two
 values with read-back, keep an automatic rollback, and keep a route back to the TV's own menus.
-The specific firmware string and app id in `native/` are mine and must become yours deliberately.
+The listed firmware strings and app id are examples tied to the observed builds; adding yours
+requires the same deliberate, device-specific validation.
 
 A coding agent is genuinely useful for the browser-preview and launcher work. For Part 2 it needs
 access to your actual TV on your local network, so a hosted chat that can only read this repo

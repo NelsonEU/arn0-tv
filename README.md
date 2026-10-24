@@ -47,7 +47,8 @@ the TV's copy wins (`config.js` only supplies the defaults).
 Beyond config: tile colours and brand marks in [`src/js/brands.js`](src/js/brands.js), the whole
 look in [`src/css/style.css`](src/css/style.css), and your own photos as wallpapers.
 
-Anything specific to your own TV — weather coordinates, a devlog address — belongs in
+Anything specific to your own TV — weather coordinates, a devlog address or an optional camera
+relay — belongs in
 `src/js/config.local.js` instead. That file is gitignored and merged over `config.js` one level
 deep, so the tracked file keeps its nulls while the local one reaches both the browser preview and
 the packaged `.wgt`. Nothing to strip before a push, nothing to restore before a build. Copy
@@ -75,7 +76,8 @@ but does not include a ready-to-run SDB staging/runner script or a per-TV recove
 ## Put it on a TV
 
 **[docs/setup-tv.md](docs/setup-tv.md)** — installing the package, then optionally the Home button
-and power-on changes, with the recovery steps for each.
+and power-on changes, with the recovery steps for each. **[docs/cameras.md](docs/cameras.md)**
+explains the optional, locally configured camera snapshot wall (no credentials in the WGT).
 
 Installing the launcher is reversible by uninstalling it. The Home-button change is reversible
 with the saved per-device baseline, but it rewrites undocumented platform preferences. The
@@ -87,11 +89,12 @@ Evidence and limits:
 | --- | --- |
 | Reference device | QE65Q70BATXXC (Q70B, 2022), firmware T-PTMDEUC-1720.7, Tizen 6.5, armv7 |
 | Install | `.wgt` via Apps2Samsung or Tizen Studio CLI; works |
-| Home button | Tested on the reference device: opens `Arn0Lnchr0.Launcher` |
+| Home button | Tested on the reference device and on `QN70Q65BAGXZD` / `T-NKLBUABC-1720.7`; see the exact scope and recovery limits in [setup-tv.md](docs/setup-tv.md) |
+| Camera wall | Optional LAN JPEG snapshots from a separately operated relay; no camera credentials in the repository or WGT. See [cameras.md](docs/cameras.md) |
 | Power-on | `auto_start` was `1` and remains `1`; the helper does not change it. Cold-boot behaviour has not been independently validated as part of the Home-button change |
 | Method | Developer Mode, UID 901, platform `vconf` / `aul` calls. **No root.** |
 | Open items | Untested on `auto_start=0` TVs; behaviour after a firmware update unknown |
-| Other models | **No compatibility claim.** The helpers check architecture, UID, and firmware string, but do not verify the TV model |
+| Other models | **No compatibility claim beyond the two observed builds.** Firmware checks do not verify the retail model; validate it separately |
 
 ## Reference
 

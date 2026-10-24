@@ -55,8 +55,9 @@ internal static class Query
             uint uid = getuid();
             if (uid != 901) throw new Exception("Expected SDK UID 901, got " + uid + "; stopped");
             string prd = File.ReadAllText("/etc/prd_info.ini");
-            if (prd.IndexOf("T-PTMDEUC-1720.7", StringComparison.Ordinal) < 0)
-                throw new Exception("Firmware guard did not match the expected T-PTMDEUC-1720.7; stopped");
+            if (prd.IndexOf("T-PTMDEUC-1720.7", StringComparison.Ordinal) < 0 &&
+                prd.IndexOf("Version=T-NKLBUABC-1720.7;", StringComparison.Ordinal) < 0)
+                throw new Exception("Firmware guard did not match a documented build; stopped");
             Console.WriteLine("QUERY_BEGIN");
             Console.WriteLine("uid=" + uid);
             Console.WriteLine("architecture_bits=" + (IntPtr.Size * 8));

@@ -43,7 +43,8 @@ internal static class Control
         if (IntPtr.Size != 4) throw new Exception("Expected 32-bit process; stopped");
         if (getuid() != 901) throw new Exception("Expected SDK UID 901; stopped");
         string prd = File.ReadAllText("/etc/prd_info.ini");
-        if (prd.IndexOf("T-PTMDEUC-1720.7", StringComparison.Ordinal) < 0)
+        if (prd.IndexOf("T-PTMDEUC-1720.7", StringComparison.Ordinal) < 0 &&
+            prd.IndexOf("Version=T-NKLBUABC-1720.7;", StringComparison.Ordinal) < 0)
             throw new Exception("Firmware guard mismatch; stopped");
     }
 

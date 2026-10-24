@@ -126,6 +126,19 @@
         return wrap;
     }
 
+    function cameraTile(isWall) {
+        var wrap = el('div', 'input');
+        var tile = el('div', isWall ? 'tile camera-tile camera-wall-tile' : 'tile camera-tile');
+        tile.appendChild(el('div', 'camera-glyph', isWall ? '▦' : '▣'));
+        var meta = el('div', 'meta');
+        meta.appendChild(el('div', 'name', isWall ? 'Camera wall' : 'Cameras'));
+        meta.appendChild(el('div', 'port', cfg.cameras.length + ' cameras'));
+        tile.appendChild(meta);
+        wrap.appendChild(tile);
+        wrap._item = { kind: isWall ? 'camera-wall' : 'cameras' };
+        return wrap;
+    }
+
     // Console tile for Settings lists: brand colours and logo only.
     function miniInputTile(input) {
         var brand = findBrand(input.brand || '');
@@ -177,6 +190,10 @@
         inputs().forEach(function (input) {
             if (!input.hidden) row2.appendChild(inputTile(input));
         });
+        if (window.CameraView && CameraView.isConfigured()) {
+            row2.appendChild(cameraTile(false));
+            row2.appendChild(cameraTile(true));
+        }
         $('inputs-section').classList.toggle('hidden', !row2.children.length);
         applyInputStatus();
         if (UI.isVisible('home')) UI.refresh();
@@ -184,7 +201,7 @@
 
     function applyInputStatus() {
         UI.children($('inputs-row')).forEach(function (tile) {
-            tile._dot.classList.toggle('on', state.hdmi[tile._item.hdmi] === true);
+            if (tile._dot) tile._dot.classList.toggle('on', state.hdmi[tile._item.hdmi] === true);
         });
     }
 
@@ -416,6 +433,8 @@
                 if (item.kind === 'app') launchApp(item);
                 else if (item.kind === 'all') UI.show('all');
                 else if (item.kind === 'input') openInput(item);
+                else if (item.kind === 'cameras') CameraView.openGallery();
+                else if (item.kind === 'camera-wall') CameraView.openWall();
                 else if (item.kind === 'settings') UI.show('settings');
             },
             // Home is the root: Back does nothing.
@@ -442,6 +461,7 @@
     function init() {
         registerKeys();
         registerViews();
+        if (window.CameraView) CameraView.init();
         UI.setColourKey(colourKey);
         UI.setKeyHook(function (k) {
             if (state.tvMode) {
