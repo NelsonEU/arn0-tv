@@ -20,6 +20,28 @@ you understand and adapt the setup. Start with the browser preview, make the int
 then work through TV installation when you're ready. Native Home/startup changes need particular
 care; [the setup guide](docs/setup-tv.md) covers the risks and recovery steps.
 
+## This fork
+
+Built on [NelsonEU/arn0-tv](https://github.com/NelsonEU/arn0-tv). Extra behaviour on top of upstream:
+
+- **Live backgrounds** — Bing daily archive as a capped wallpaper pool (Settings → Background →
+  Live). URLs/titles only; images stay remote. Market and pool size in `config.js` /
+  `config.local.js`.
+- **Home weather** — current conditions beside the clock (city · condition, temp with high/low),
+  plus a strip of the next 7 days. Same Open-Meteo reading as the screen saver; place and unit in
+  Settings → Weather.
+- **Subsonic / OpenSubsonic music** — ambient random playback in the launcher only. Credentials in
+  Settings → Music (not in Advanced export). Compact play/next + now-playing beside weather on
+  Home; title/artist also on the screen saver. Long labels scroll a few times then stop (avoids
+  idle CPU from infinite marquee).
+- **Glass tiles** — translucent brand fills so the wallpaper shows through on apps and consoles.
+- **Native icons** — auto-crop transparent padding so sparse icons (e.g. Moonlight) fill the tile;
+  optional `iconPad` override in `config.js` if needed.
+- **Home polish** — Internet / Live TV brands, centered app and console labels, Live TV shown as
+  **TV**, larger app icon, music chip without a solid panel behind it.
+
+Upstream Home-button / install docs still apply; this fork does not change that path.
+
 ## Try the interface
 
 Needs Node.js 20 or newer. Nothing is installed and no TV is involved.
@@ -134,9 +156,12 @@ src/                  everything that goes into the .wgt
   js/apps.js          list / filter / launch via tizen.application
   js/inputs.js        HDMI via tizen.systeminfo + tizen.tvwindow
   js/wallpaper.js     wallpaper display and rotation
-  js/screensaver.js   idle screen saver: photos, slow zoom, clock
+  js/live-wallpaper.js  Bing daily pool for Live backgrounds
+  js/screensaver.js   idle screen saver: photos, clock, weather, now-playing
   js/appearance.js    clock, date and font settings
-  js/weather.js       Open-Meteo reading for the screen saver corner
+  js/weather.js       Open-Meteo for Home and the screen saver
+  js/subsonic.js      OpenSubsonic / Subsonic client (enc: auth)
+  js/music.js         ambient random playback and now-playing UI
   js/prefs.js         settings saved on the TV
   js/ui.js            screens, focus, keys, toast, pop-up menu
   js/home.js          Home, All apps, Lab
@@ -155,8 +180,8 @@ docs/                 setup guide
 
 Saved on the TV in `localStorage`. They survive restarts and in-place updates, not an uninstall.
 
-- **Background** — Off (plain gradient), one photo, or rotate: on each Home, 30 s, 5 min, 15 min,
-  1 hour, daily.
+- **Background** — Off (plain gradient), one photo, rotate (on each Home, 30 s, 5 min, 15 min,
+  1 hour, daily), or **Live** (Bing pool).
 - **Apps on Home** — OK on an app opens Move / Remove; OK on the right-hand slot adds one.
 - **Consoles** — per console: rename (on-screen keyboard), HDMI port, logo, how it opens, hide,
   reorder, remove; plus add a console.
@@ -167,10 +192,13 @@ Saved on the TV in `localStorage`. They survive restarts and in-place updates, n
 - **Screen saver** — on or off, start after 3/5/10/15 min idle on Home, photo change every
   60/75/90 s while Background is on Rotate, go dark after 30 min / 1 hour / 2 hours / never, and
   show it now.
+- **Weather** — place (city list or off), °C / °F; feeds Home and the screen saver.
+- **Music** — Subsonic/OpenSubsonic server, user, password, on/off, volume; play/next from Home.
 - **Samsung Home** — opens `com.samsung.tv.csfs`, from which TV settings are one press away.
   Opening `com.samsung.tv.coba.setting` directly does not work on this TV. Keep this entry: it is
   the route back if you have redirected the Home button.
 - **Advanced** — refresh the app list, export settings to the log, reset everything, Lab.
+  Music credentials are stored separately and are not included in export.
 
 ### Wallpapers
 
@@ -183,16 +211,14 @@ Green.
 ### Screen saver
 
 After a few minutes with no input on Home it shows the wallpapers full screen with the clock, the
-weather and the photo's name in the corners. Any button closes it, and that press does nothing else. It never
-appears over a console input, another screen or the hidden game.
+weather, optional now-playing, and the photo's name. Any button closes it, and that press does
+nothing else. It never appears over a console input, another screen or the hidden game.
 
-The weather is off until you put coordinates in `config.local.js` (see **What you can change**). It comes from
-[Open-Meteo](https://open-meteo.com/), which needs no API key, and there is deliberately no
-Settings page for it: the TV does not move, and coordinates are not something you type with a
-remote. The reading is cached in `localStorage` so the screen saver opens with real numbers even
-after the TV has been off, it refreshes at most once an hour and only when something is about to
-show it, and anything older than three hours is treated as no reading at all — an unattended
-screen should go blank rather than state yesterday's temperature as if it were now.
+Weather comes from [Open-Meteo](https://open-meteo.com/) (no API key). Pick a city in Settings →
+Weather, or seed coordinates in `config.local.js`. The reading is cached in `localStorage` so Home
+and the screen saver open with real numbers even after the TV has been off; it refreshes at most
+once an hour and only when something is about to show it, and anything older than three hours is
+treated as no reading at all.
 
 Everything in it moves, because a clock parked in one corner for an hour is a burn-in risk: the
 photo drifts across 320 px while it is up and the next one drifts back the other way, the corner
@@ -278,7 +304,7 @@ probe now measures against `Date.now()` and flags any sample faster than the pan
 | `application.info` | listing apps |
 | `tv.inputdevice` | colour keys (arrows, OK and Back need no registration) |
 | `tv.window` | HDMI source switching and display |
-| `internet` + `<access origin="*">` | the Open-Meteo request and the development log |
+| `internet` + `<access origin="*">` | Open-Meteo, Bing live wallpapers, Subsonic streams, development log |
 
 ## Contribute
 
