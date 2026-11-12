@@ -7,8 +7,19 @@
  * restating the rest of the block. Arrays (apps, inputs) replace the default wholesale.
  */
 window.LAUNCHER_LOCAL = {
-    // Open-Meteo needs coordinates; two decimals is about a kilometre, which is finer than its grid.
-    // weather: { latitude: 20, longitude: 2 },
+    // Weather: prefer Settings → Weather on the TV. Optional seed before first prefs save:
+    // weather: { latitude: 48.86, longitude: 2.35, unit: 'celsius' },
+
+    // Optional first-run seed for Music. Prefer Settings → Music on the TV afterwards.
+    // subsonic: {
+    //     baseUrl: 'http://192.168.1.10:4533',
+    //     user: 'me',
+    //     password: 'secret',
+    //     maxBitRate: 320
+    // },
+
+    // Live Bing wallpapers (metadata cache only; max = rolling daily pool size).
+    // liveWallpaper: { market: 'en-GB', max: 15 },
 
     // Receives Lab logs; see scripts/devlog-server.mjs.
     // devLogUrl: null,

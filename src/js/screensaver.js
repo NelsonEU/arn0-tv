@@ -89,26 +89,30 @@
     // ---------- Photos
 
     function rotating() {
-        return Prefs.get().wallpaper.mode === 'rotate' && Wallpaper.list().length > 1;
+        var mode = Prefs.get().wallpaper.mode;
+        return (mode === 'rotate' || mode === 'live') && Wallpaper.list().length > 1;
     }
 
     /*
      * The photo follows the Background setting: Off shows no photo, Photo holds the chosen one,
-     * Rotate cycles the lot. The index is the screen saver's own — advancing it must not rewrite
-     * the Home wallpaper or restart its rotation clock, so Prefs.wallpaper is read, never written.
+     * Rotate / Live cycle the lot. The index is the screen saver's own — advancing it must not
+     * rewrite the Home wallpaper or restart its rotation clock, so Prefs.wallpaper is read, never written.
      */
     function photoAt(i) {
         var p = Prefs.get().wallpaper;
         if (p.mode === 'off') return null;
         var list = Wallpaper.list();
         if (!list.length) return null;
-        if (p.mode !== 'rotate') return Wallpaper.find(p.photo);
-        return list[((i % list.length) + list.length) % list.length];
+        if (p.mode === 'rotate' || p.mode === 'live') {
+            return list[((i % list.length) + list.length) % list.length];
+        }
+        return Wallpaper.find(p.mode === 'live' ? p.liveKey : p.photo);
     }
 
     // Continue from whatever is already on Home, so opening the screen saver is not a jump cut.
     function startIndex() {
-        var key = Prefs.get().wallpaper.photo;
+        var p = Prefs.get().wallpaper;
+        var key = p.mode === 'live' ? p.liveKey : p.photo;
         var i = Wallpaper.list().findIndex(function (w) { return w.key === key; });
         return i < 0 ? 0 : i;
     }
@@ -219,6 +223,7 @@
         nudge = (nudge + 1) % NUDGES.length;
         var shift = 'translate(' + NUDGES[nudge][0] + 'px, ' + NUDGES[nudge][1] + 'px)';
         $('ss-caption').style.transform = shift;
+        $('ss-music').style.transform = shift;
         $('ss-clock').style.transform = shift;
     }
 
@@ -246,6 +251,22 @@
         $('ss-wx-detail').textContent = w.detail;
     }
 
+    function renderMusic() {
+        var el = $('ss-music');
+        if (!el) return;
+        var show = window.Music && window.Subsonic && Subsonic.configured();
+        el.classList.toggle('hidden', !show);
+        if (!show) return;
+        var song = Music.current();
+        if (song) {
+            Music.fillMarquee($('ss-music-title'), song.title, true);
+            Music.fillMarquee($('ss-music-artist'), song.artist || song.album || '', true);
+        } else {
+            Music.fillMarquee($('ss-music-title'), 'Not playing', false);
+            Music.fillMarquee($('ss-music-artist'), '', false);
+        }
+    }
+
     // ---------- Open, tick, close
 
     function openSaver() {
@@ -265,6 +286,7 @@
         resetPan(layers[1], panSign);
         $('ss-dark').style.opacity = '0';
         $('ss-caption').style.transform = '';
+        $('ss-music').style.transform = '';
         setClockPos(0);
         $('ss-clock').style.transform = '';
 
@@ -278,6 +300,7 @@
         updateClock();
         // Shows the cached reading at once, and asks for a new one only if the hour is up.
         renderWeather();
+        renderMusic();
         if (window.Weather) Weather.refresh();
         var w = photoAt(photoIndex);
         caption(w);
@@ -354,6 +377,11 @@
         if (window.Weather) {
             Weather.onUpdate(function () {
                 if (open) renderWeather();
+            });
+        }
+        if (window.Music) {
+            Music.onUpdate(function () {
+                if (open) renderMusic();
             });
         }
         UI.register('screensaver', {

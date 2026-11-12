@@ -8,7 +8,8 @@
     var NUMERIC_ID = /^\d{9,13}$/;
     var PRELOADED = [
         'org.tizen.netflix-app', 'org.tizen.primevideo', 'org.tizen.apple.apple-music',
-        'org.tizen.browser', 'com.samsung.tv.aria-video'
+        'org.tizen.browser', 'com.samsung.tv.aria-video',
+        'com.samsung.tv.coba.livetv', 'org.tizen.tv-viewer'
     ];
     var INTERNAL = [
         'adplatform.ADPlayer', 'WykOS4t4F0.cmsWebApp', '25emanual3.emanual',
@@ -96,14 +97,38 @@
         return name.split(/\s+[-:|–]\s+/)[0].trim() || name;
     }
 
+    function iconPadFor(app, entry) {
+        if (entry && entry.iconPad) return entry.iconPad;
+        var apps = (window.LAUNCHER_CONFIG && window.LAUNCHER_CONFIG.apps) || [];
+        for (var i = 0; i < apps.length; i++) {
+            var e = apps[i];
+            if (!e.iconPad) continue;
+            if (e.id && e.id === app.id) return e.iconPad;
+            if (e.match) {
+                var re = new RegExp(e.match, 'i');
+                if (re.test(app.id) || re.test(app.name || '')) return e.iconPad;
+            }
+        }
+        return null;
+    }
+
     function toItem(app, entry) {
-        return {
+        var brand = entry.brand ? findBrand(entry.brand) : findBrand(app);
+        // Live TV's system name is often "tv-viewer"; keep the Home label as "TV".
+        var label = (brand && brand.key === 'livetv')
+            ? 'TV'
+            : (entry.label || shortName(app.name));
+        var item = {
             kind: 'app',
             id: app.id,
-            label: entry.label || shortName(app.name),
-            brand: entry.brand ? findBrand(entry.brand) : findBrand(app),
+            label: label,
+            brand: brand,
             iconPath: app.iconPath || ''
         };
+        // Optional [vertical, horizontal] inset % for native icons that look undersized.
+        var pad = iconPadFor(app, entry || {});
+        if (pad) item.iconPad = pad;
+        return item;
     }
 
     function describe(app) {

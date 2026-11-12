@@ -17,9 +17,10 @@
                 preset: cfg.sound && cfg.sound.preset || 'soft'
             },
             wallpaper: {
-                mode: theme.wallpaper ? 'photo' : 'off',   // 'off' | 'photo' | 'rotate'
+                mode: theme.wallpaper ? 'photo' : 'off',   // 'off' | 'photo' | 'rotate' | 'live'
                 photo: theme.wallpaper || 'forest',
-                interval: '15m',        // see Wallpaper.INTERVALS
+                liveKey: '',            // current entry in the live pool (Bing date key)
+                interval: '15m',        // see Wallpaper.INTERVALS (rotate + live cycle)
                 lastChange: 0
             },
             screensaver: {
@@ -27,6 +28,19 @@
                 delay: '5m',            // see Screensaver.DELAYS
                 photoEvery: '75s',      // see Screensaver.PHOTO_EVERY
                 dark: '1h'              // see Screensaver.DARK_AFTER
+            },
+            // Seeded from config.js weather; Settings → Weather edits these.
+            weather: {
+                place: 'off',           // Weather.PLACES key, or 'custom'
+                latitude: null,
+                longitude: null,
+                unit: 'celsius'         // 'celsius' | 'fahrenheit'
+            },
+            // Subsonic ambient player (server/user/password live in Subsonic creds store).
+            music: {
+                enabled: false,
+                playing: false,
+                volume: 'med'           // Music.VOLUMES key: low | med | high
             },
             appearance: {
                 clock: '24h',           // '24h' | '12h'
@@ -49,12 +63,15 @@
 
     function load() {
         var prefs = defaults();
+        if (window.Weather && Weather.seedFromConfig) Weather.seedFromConfig(prefs.weather);
         try {
             var saved = JSON.parse(localStorage.getItem(KEY));
             if (saved) {
                 merge(prefs.sound, saved.sound);
                 merge(prefs.wallpaper, saved.wallpaper);
                 merge(prefs.screensaver, saved.screensaver);
+                merge(prefs.weather, saved.weather);
+                merge(prefs.music, saved.music);
                 merge(prefs.appearance, saved.appearance);
                 if (Array.isArray(saved.home) && saved.home.length) prefs.home = saved.home;
                 if (Array.isArray(saved.inputs)) prefs.inputs = saved.inputs;
@@ -92,6 +109,8 @@
         } catch (e) {
             // Nothing stored, nothing to clear.
         }
+        if (window.LiveWallpaper) LiveWallpaper.clearCache();
+        if (window.Subsonic) Subsonic.clearCreds();
         prefs = defaults();
     }
 

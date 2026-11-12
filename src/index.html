@@ -9,11 +9,42 @@
 <body>
     <div id="stage">
         <div id="bg"></div>
+        <!-- Readability scrim for remote (unbaked) live wallpapers only; bundled JPGs already include it. -->
+        <div id="bg-scrim" class="hidden"></div>
 
         <section id="home" class="view">
             <header class="clock">
-                <div id="time"><span id="time-main"></span><span id="time-suffix"></span></div>
-                <div id="date"></div>
+                <div class="clock-main">
+                    <div id="time"><span id="time-main"></span><span id="time-suffix"></span></div>
+                    <div id="date"></div>
+                </div>
+                <div id="home-weather" class="home-weather hidden">
+                    <div class="home-wx-now">
+                        <span id="home-wx-icon" class="home-wx-icon"></span>
+                        <span id="home-wx-temp" class="home-wx-temp"></span>
+                        <span class="home-wx-pipe">|</span>
+                        <span id="home-wx-range" class="home-wx-range"></span>
+                    </div>
+                    <div id="home-wx-detail" class="home-wx-detail"></div>
+                    <div id="home-wx-week" class="home-wx-week"></div>
+                </div>
+                <div id="home-music-sep" class="home-music-sep hidden" aria-hidden="true">|</div>
+                <!-- Compact now-playing, beside weather when Subsonic is configured. -->
+                <div id="music-bar" class="music-bar hidden">
+                    <div id="music-controls" class="music-controls">
+                        <div id="music-btn-play" class="music-btn" tabindex="-1">
+                            <svg class="music-icon-play" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                            <svg class="music-icon-pause hidden" viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>
+                        </div>
+                        <div id="music-btn-next" class="music-btn" tabindex="-1">
+                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+                        </div>
+                    </div>
+                    <div class="music-meta">
+                        <div id="music-now-title" class="music-now-title marquee">Not playing</div>
+                        <div id="music-now-artist" class="music-now-artist marquee"></div>
+                    </div>
+                </div>
             </header>
             <div id="gear" class="gear">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -54,6 +85,11 @@
                 <div id="bg-interval-block" class="setting-block">
                     <h2>Change every</h2>
                     <div id="bg-interval" class="chips"></div>
+                </div>
+                <div id="bg-live-block" class="setting-block hidden">
+                    <h2>Live (Bing daily)</h2>
+                    <p id="bg-live-status" class="setting-note"></p>
+                    <p id="bg-live-cap" class="setting-note muted"></p>
                 </div>
                 <div id="bg-photos-block" class="setting-block">
                     <h2>Photo</h2>
@@ -110,6 +146,16 @@
             <div id="screensaver-body" class="settings-body compact"></div>
         </section>
 
+        <section id="weather-settings" class="view page hidden">
+            <header class="page-head"><h1>Weather</h1></header>
+            <div id="weather-body" class="settings-body compact"></div>
+        </section>
+
+        <section id="music-settings" class="view page hidden">
+            <header class="page-head"><h1>Music</h1></header>
+            <div id="music-body" class="settings-body compact"></div>
+        </section>
+
         <!-- Two photo layers so one can decode and zoom from scratch while the other fades out. -->
         <section id="screensaver" class="view hidden">
             <div id="ss-photo-a" class="ss-photo"></div>
@@ -117,6 +163,10 @@
             <div class="ss-scrim"></div>
             <div id="ss-caption" class="ss-caption">
                 <div id="ss-title" class="ss-title"></div>
+            </div>
+            <div id="ss-music" class="ss-music hidden">
+                <div id="ss-music-title" class="ss-music-title marquee">Not playing</div>
+                <div id="ss-music-artist" class="ss-music-artist marquee"></div>
             </div>
             <div id="ss-clock" class="ss-clock pos-0">
                 <div id="ss-weather" class="ss-weather hidden">
@@ -140,7 +190,7 @@
 
         <div id="rename" class="view overlay hidden">
             <div class="menu-box">
-                <div class="dialog-title">Name</div>
+                <div id="rename-title" class="dialog-title">Name</div>
                 <input id="rename-input" type="text" maxlength="28" autocomplete="off" spellcheck="false">
             </div>
         </div>
@@ -166,13 +216,16 @@
     <script src="js/brands.js"></script>
     <script src="js/wallpapers.js"></script>
     <script src="js/devlog.js"></script>
+    <script src="js/weather.js"></script>
     <script src="js/prefs.js"></script>
     <script src="js/apps.js"></script>
     <script src="js/inputs.js"></script>
+    <script src="js/live-wallpaper.js"></script>
     <script src="js/wallpaper.js"></script>
     <script src="js/appearance.js"></script>
-    <script src="js/weather.js"></script>
     <script src="js/sound.js"></script>
+    <script src="js/subsonic.js"></script>
+    <script src="js/music.js"></script>
     <script src="js/ui.js"></script>
     <script src="js/render-probe.js"></script>
     <script src="js/platform-probe.js"></script>

@@ -48,13 +48,104 @@
         return h;
     }
 
+    // Brand fills as glass: keep hue, let the wallpaper show through.
+    function hexToRgba(hex, alpha) {
+        var h = String(hex).replace('#', '');
+        if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+        if (h.length !== 6) return 'rgba(255,255,255,' + alpha + ')';
+        var n = parseInt(h, 16);
+        return 'rgba(' + (n >> 16) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + alpha + ')';
+    }
+
+    function glassBg(bg, alpha) {
+        alpha = alpha == null ? 0.46 : alpha;
+        if (!bg) return 'rgba(255,255,255,0.12)';
+        return String(bg)
+            .replace(/#([0-9a-fA-F]{3,6})\b/g, function (_, h) { return hexToRgba(h, alpha); })
+            .replace(/hsl\(([^)]+)\)/g, function (_, body) { return 'hsla(' + body + ',' + alpha + ')'; });
+    }
+
+    /*
+     * Many Tizen icons ship with empty transparent margins. Crop to opaque pixels so the
+     * artwork fills the tile without a per-app pad. Falls back silently if the canvas is
+     * tainted (some file:// paths) or the icon is already full-bleed.
+     */
+    function trimIconPadding(img, done) {
+        var w = img.naturalWidth;
+        var h = img.naturalHeight;
+        if (!w || !h) { done(null); return; }
+        var canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        var ctx = canvas.getContext('2d');
+        if (!ctx) { done(null); return; }
+        try {
+            ctx.drawImage(img, 0, 0);
+            var data = ctx.getImageData(0, 0, w, h).data;
+        } catch (e) {
+            done(null);
+            return;
+        }
+        var minX = w;
+        var minY = h;
+        var maxX = -1;
+        var maxY = -1;
+        var i;
+        for (i = 3; i < data.length; i += 4) {
+            if (data[i] < 12) continue;
+            var p = (i - 3) / 4;
+            var x = p % w;
+            var y = (p - x) / w;
+            if (x < minX) minX = x;
+            if (y < minY) minY = y;
+            if (x > maxX) maxX = x;
+            if (y > maxY) maxY = y;
+        }
+        if (maxX < 0) { done(null); return; }
+        var margin = Math.max(1, Math.round(Math.max(w, h) * 0.02));
+        minX = Math.max(0, minX - margin);
+        minY = Math.max(0, minY - margin);
+        maxX = Math.min(w - 1, maxX + margin);
+        maxY = Math.min(h - 1, maxY + margin);
+        var cw = maxX - minX + 1;
+        var ch = maxY - minY + 1;
+        if (cw / w > 0.9 && ch / h > 0.9) { done(null); return; }
+        var out = document.createElement('canvas');
+        out.width = cw;
+        out.height = ch;
+        out.getContext('2d').drawImage(img, minX, minY, cw, ch, 0, 0, cw, ch);
+        try {
+            done(out.toDataURL('image/png'));
+        } catch (e2) {
+            done(null);
+        }
+    }
+
     // Installed apps report a native path; it may or may not be readable from a web app.
-    function tryIcon(tile, mono, path) {
+    // pad: optional [vertical, horizontal] inset % override after auto-trim.
+    function tryIcon(tile, mono, path, pad) {
         var img = new Image();
         img.className = 'icon';
+        if (pad) {
+            img.style.top = pad[0] + '%';
+            img.style.height = (100 - 2 * pad[0]) + '%';
+            img.style.left = pad[1] + '%';
+            img.style.width = (100 - 2 * pad[1]) + '%';
+        }
         img.onload = function () {
-            mono.style.display = 'none';
-            tile.appendChild(img);
+            if (img._ready) {
+                mono.style.display = 'none';
+                if (!img.parentNode) tile.appendChild(img);
+                return;
+            }
+            trimIconPadding(img, function (url) {
+                img._ready = true;
+                if (url) img.src = url;
+                else {
+                    mono.style.display = 'none';
+                    tile.appendChild(img);
+                }
+            });
         };
         img.src = path.charAt(0) === '/' ? 'file://' + path : path;
     }
@@ -62,7 +153,7 @@
     function tileFace(item) {
         var tile = el('div', 'tile');
         if (item.brand) {
-            tile.style.background = item.brand.bg;
+            tile.style.background = glassBg(item.brand.bg);
             if (item.brand.text) {
                 var word = el('div', 'wordmark', item.brand.text);
                 word.style.color = item.brand.fg;
@@ -71,10 +162,10 @@
                 tile.appendChild(markEl(item.brand));
             }
         } else {
-            tile.style.background = 'hsl(' + hue(item.label) + ',32%,24%)';
+            tile.style.background = glassBg('hsl(' + hue(item.label) + ',32%,28%)');
             var mono = el('div', 'mono', initials(item.label).toUpperCase());
             tile.appendChild(mono);
-            if (item.iconPath) tryIcon(tile, mono, item.iconPath);
+            if (item.iconPath) tryIcon(tile, mono, item.iconPath, item.iconPad);
         }
         return tile;
     }
@@ -110,7 +201,7 @@
         var brand = findBrand(input.brand || '') || { bg: '#2a2f3a', fg: '#fff', mark: null };
         var wrap = el('div', 'input');
         var tile = el('div', 'tile');
-        tile.style.background = brand.bg;
+        tile.style.background = glassBg(brand.bg, 0.38);
         if (brand.mark) tile.appendChild(markEl(brand));
         var meta = el('div', 'meta');
         meta.appendChild(el('div', 'name', input.label));
@@ -158,6 +249,7 @@
         Prefs.get().home = items.map(function (i) {
             var entry = { id: i.id, label: i.label };
             if (i.brand) entry.brand = i.brand.key;
+            if (i.iconPad) entry.iconPad = i.iconPad;
             return entry;
         });
         Prefs.save();
@@ -330,6 +422,39 @@
         $('date').textContent = Appearance.date(d);
     }
 
+    function updateWeather() {
+        var el = $('home-weather');
+        var clock = document.querySelector('#home .clock');
+        var sep = $('home-music-sep');
+        if (!el) return;
+        var w = window.Weather && Weather.current();
+        el.classList.toggle('hidden', !w);
+        if (clock) clock.classList.toggle('with-weather', !!w);
+        if (sep) {
+            sep.classList.toggle('hidden', !(w && clock && clock.classList.contains('with-music')));
+        }
+        if (!w) return;
+        $('home-wx-icon').innerHTML = w.icon;
+        $('home-wx-temp').textContent = w.temp;
+        $('home-wx-range').textContent = w.range;
+        $('home-wx-detail').textContent = w.detail;
+        var week = $('home-wx-week');
+        week.innerHTML = '';
+        (w.days || []).forEach(function (d) {
+            var day = document.createElement('div');
+            day.className = 'home-wx-day';
+            day.innerHTML =
+                '<div class="home-wx-day-label"></div>' +
+                '<div class="home-wx-day-icon"></div>' +
+                '<div class="home-wx-day-temps"></div>';
+            day.querySelector('.home-wx-day-label').textContent = d.label;
+            day.querySelector('.home-wx-day-icon').innerHTML = d.icon;
+            day.querySelector('.home-wx-day-temps').innerHTML =
+                d.max + ' <span>' + d.min + '</span>';
+            week.appendChild(day);
+        });
+    }
+
     // The TV takes ~4 s to list its ~450 apps, so Home is drawn from the last list we saw
     // and only redrawn if a fresh list differs.
     function readCache() {
@@ -408,15 +533,25 @@
         UI.register('home', {
             el: $('home'),
             startRow: 1,
-            hints: [['OK', 'Open'], ['▲', 'Settings']],
+            hints: function () {
+                return [['OK', 'Open'], ['▲', 'Settings']];
+            },
             rows: function () {
-                return [[$('gear')], UI.children($('apps-row')), UI.children($('inputs-row'))];
+                var top = [$('gear')];
+                if (window.Music && Music.barVisible()) {
+                    top = [$('music-btn-play'), $('music-btn-next'), $('gear')];
+                }
+                return [top, UI.children($('apps-row')), UI.children($('inputs-row'))];
             },
             activate: function (item) {
                 if (item.kind === 'app') launchApp(item);
                 else if (item.kind === 'all') UI.show('all');
                 else if (item.kind === 'input') openInput(item);
                 else if (item.kind === 'settings') UI.show('settings');
+                else if (item.kind === 'music') {
+                    if (item.action === 'toggle') Music.toggle();
+                    else if (item.action === 'next') Music.next();
+                }
             },
             // Home is the root: Back does nothing.
             onBack: function () { return true; }
@@ -457,7 +592,12 @@
         });
         Appearance.apply();
         updateClock();
+        updateWeather();
         setInterval(updateClock, 10000);
+        if (window.Weather) {
+            Weather.onUpdate(updateWeather);
+            Weather.refresh();
+        }
         renderLab();
         var cached = readCache();
         if (cached && cached.length) setApps(cached);
@@ -471,6 +611,8 @@
                 return;
             }
             updateClock();
+            updateWeather();
+            if (window.Weather) Weather.refresh();
             refreshInputStatus();
             if (UI.isVisible('home')) Wallpaper.homeShown();
             if (Date.now() - state.lastFetch > REFRESH_AFTER_MS) setTimeout(loadApps, 1500);

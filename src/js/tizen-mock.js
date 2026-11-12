@@ -14,6 +14,8 @@
 
     var apps = [
         app('Arn0Lnchr0.Launcher', 'Arn0 Launcher'),
+        app('com.samsung.tv.coba.livetv', 'Live TV'),
+        app('org.tizen.tv-viewer', 'TV Viewer'),
         app('xvvl3S1TT1.TizenTubeStandalone', 'TizenTube'),
         app('com.samsung.tv.cobalt-yt', 'YouTube'),
         app('org.tizen.netflix-app', 'Netflix'),

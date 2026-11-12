@@ -103,6 +103,9 @@
             var voice = name === 'move' ? selectedPreset() : (c[name] || c.move);
             var t = ac.currentTime;
             var seconds = voice.ms / 1000;
+            // Duck nav clicks while Subsonic ambient music is audible.
+            var level = c.volume;
+            if (window.Music && Music.isPlaying()) level = Math.min(level, 0.03);
 
             var osc = ac.createOscillator();
             osc.type = voice.type;
@@ -111,7 +114,7 @@
             var gain = ac.createGain();
             // Tiny attack keeps the start from clicking; exponential decay reads as a tick.
             gain.gain.setValueAtTime(0.0001, t);
-            gain.gain.exponentialRampToValueAtTime(c.volume, t + 0.004);
+            gain.gain.exponentialRampToValueAtTime(level, t + 0.004);
             gain.gain.exponentialRampToValueAtTime(0.0001, t + seconds);
 
             osc.connect(gain);

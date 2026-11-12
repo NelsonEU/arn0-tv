@@ -7,12 +7,18 @@
  *   { match: 'netflix' }              case-insensitive regex on id or name
  *   label                             optional display name
  *   brand                             optional key from js/brands.js (otherwise guessed from the name)
+ *   iconPad                           optional [vertical, horizontal] % inset override
+ *                                     (native icons are auto-cropped; rarely needed)
  * Entries that match nothing are skipped.
  *
  * inputs: HDMI ports shown in the second row. Set `hdmi` to the port each device is plugged into.
  */
 window.LAUNCHER_CONFIG = {
     apps: [
+        // Live TV / antenna-cable channels. Pin by id so the consumer filter cannot hide it.
+        // On your TV, confirm the id in All apps (Yellow) if the tile is missing.
+        { id: 'com.samsung.tv.coba.livetv', label: 'TV', brand: 'livetv' },
+        { id: 'org.tizen.browser', label: 'Internet', brand: 'internet' },
         { id: 'xvvl3S1TT1.TizenTubeStandalone', label: 'YouTube', brand: 'youtube' },
         { id: 'rJeHak5zRg.Spotify', label: 'Spotify' },
         { id: 'Jz7aUrV2Q4.Twitch', label: 'Twitch' },
@@ -20,7 +26,8 @@ window.LAUNCHER_CONFIG = {
         { id: 'org.tizen.netflix-app', label: 'Netflix' },
         { id: 'org.tizen.primevideo', label: 'Prime Video' },
         { id: 'MCmYXNxgcu.DisneyPlus', label: 'Disney+' },
-        { id: 'com.samsung.tv.aria-video', label: 'Apple TV' }
+        { id: 'com.samsung.tv.aria-video', label: 'Apple TV' },
+        { match: 'moonlight', label: 'Moonlight' }
     ],
 
     inputs: [
@@ -44,18 +51,35 @@ window.LAUNCHER_CONFIG = {
     },
 
     /*
-     * Weather shown in the screen saver's corner, from Open-Meteo. No API key and nothing to
-     * keep secret, so this is the whole setup: put your own coordinates here (two decimals is
-     * plenty, and is also about as precise as you want a public request to be). Leave them null
-     * and the widget never appears.
-     *
-     * There is no Settings page for this on purpose — the TV does not move, and coordinates are
-     * not something you type with a remote.
+     * Live backgrounds from Bing's daily archive (Settings → Background → Live).
+     * Only URLs/titles are cached locally — never image files. Each calendar day today's
+     * photo is prepended and the oldest dropped so the pool stays at `max`.
+     */
+    liveWallpaper: {
+        market: 'en-GB',        // Bing regional edition (en-GB, de-DE, fr-FR, it-IT, …)
+        max: 15
+    },
+
+    /*
+     * Weather defaults for the screen saver corner (Open-Meteo). Settings → Weather is the
+     * usual way to pick a city and unit on the TV; values here only seed prefs on first run
+     * (or when you set coordinates in config.local.js before the first save).
      */
     weather: {
         latitude: null,
         longitude: null,
         unit: 'celsius'         // 'celsius' | 'fahrenheit'
+    },
+
+    /*
+     * OpenSubsonic / Subsonic defaults. Usual path: Settings → Music on the TV (saved there,
+     * no rebuild). Values here / in config.local.js only seed the TV the first time.
+     */
+    subsonic: {
+        baseUrl: null,          // e.g. 'http://192.168.1.10:4533'
+        user: null,
+        password: null,
+        maxBitRate: 320
     },
 
     /*

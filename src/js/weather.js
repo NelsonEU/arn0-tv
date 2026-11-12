@@ -1,8 +1,8 @@
 /*
  * Weather for the screen saver, from Open-Meteo. No API key, free for non-commercial use.
  *
- * Coordinates come from js/config.js and default to null, which disables the widget entirely.
- * They are not a Settings page: the TV does not move, and nobody types coordinates with a remote.
+ * Place and unit live in Prefs (Settings → Weather). config.js only supplies defaults.
+ * Places are a fixed list so the remote can pick a city; no coordinate typing.
  *
  * There is no polling. A TV launcher spends most of its life in the background with JavaScript
  * paused, so a timer would be both useless and rude; instead the reading is refreshed when
@@ -13,17 +13,32 @@
 (function () {
     'use strict';
 
-    var STORE_KEY = 'arn0.weather.v1';
+    var STORE_KEY = 'arn0.weather.v5';
     var ENDPOINT = 'https://api.open-meteo.com/v1/forecast';
-    var FRESH_MS = 60 * 60 * 1000;          // inside the hour, the cached reading will do
-    var USABLE_MS = 3 * 60 * 60 * 1000;     // older than this counts as no reading at all
+    var FRESH_MS = 60 * 60 * 1000;
+    var USABLE_MS = 3 * 60 * 60 * 1000;
     var TIMEOUT_MS = 8000;
-    var RETRY_MS = 10 * 60 * 1000;          // quiet period after a failed attempt
+    var RETRY_MS = 10 * 60 * 1000;
 
-    /*
-     * Open-Meteo returns 25 WMO codes. They collapse to the eight that are worth a different
-     * icon at a glance from a sofa — on a screen saver nobody needs "depositing rime fog".
-     */
+    // Remote-friendly city list. Two decimals is finer than Open-Meteo's grid.
+    var PLACES = [
+        { key: 'off', label: 'Off' },
+        { key: 'paris', label: 'Paris', latitude: 48.86, longitude: 2.35 },
+        { key: 'lyon', label: 'Lyon', latitude: 45.76, longitude: 4.84 },
+        { key: 'marseille', label: 'Marseille', latitude: 43.30, longitude: 5.37 },
+        { key: 'bordeaux', label: 'Bordeaux', latitude: 44.84, longitude: -0.58 },
+        { key: 'lille', label: 'Lille', latitude: 50.63, longitude: 3.06 },
+        { key: 'brussels', label: 'Brussels', latitude: 50.85, longitude: 4.35 },
+        { key: 'amsterdam', label: 'Amsterdam', latitude: 52.37, longitude: 4.90 },
+        { key: 'london', label: 'London', latitude: 51.51, longitude: -0.13 },
+        { key: 'madrid', label: 'Madrid', latitude: 40.42, longitude: -3.70 },
+        { key: 'barcelona', label: 'Barcelona', latitude: 41.39, longitude: 2.17 },
+        { key: 'berlin', label: 'Berlin', latitude: 52.52, longitude: 13.41 },
+        { key: 'rome', label: 'Rome', latitude: 41.90, longitude: 12.50 },
+        { key: 'tirana', label: 'Tirana', latitude: 41.33, longitude: 19.82 },
+        { key: 'newyork', label: 'New York', latitude: 40.71, longitude: -74.01 }
+    ];
+
     function group(code) {
         if (code <= 1) return 'clear';
         if (code <= 3) return 'cloudy';
@@ -36,7 +51,6 @@
         return 'storm';
     }
 
-    // Translated for the same locales as the date, so the corner does not mix languages.
     var LABELS = {
         'en-GB': {
             clear: 'Clear', cloudy: 'Cloudy', fog: 'Fog', drizzle: 'Drizzle',
@@ -52,12 +66,7 @@
         }
     };
 
-    /*
-     * Stroke icons in the same style as the gear on Home: 24x24, no fill, round caps. A shared
-     * cloud outline with different marks under it, so eight states cost one shape and a line each.
-     */
     var CLOUD = 'M7.5 18.5h9a4 4 0 0 0 .4-8 5.5 5.5 0 0 0-10.5-1A3.75 3.75 0 0 0 7.5 18.5z';
-    // Centred on 12,13 so it sits at the same height as the cloud in the other seven.
     var SUN = '<circle cx="12" cy="13" r="3.8"/>' +
         '<path d="M12 7.8V5.6M12 18.2v2.2M6.8 13H4.6M17.2 13h2.2' +
         'M9.3 10.3L7.1 8.1M14.7 15.7l2.2 2.2M14.7 10.3l2.2-2.2M9.3 15.7L7.1 17.9"/>';
@@ -79,15 +88,70 @@
             '</svg>';
     }
 
-    // ---------- Configuration
+    // ---------- Configuration (Prefs, with config.js as seed for defaults)
 
-    function cfg() {
+    function configDefaults() {
         return (window.LAUNCHER_CONFIG && window.LAUNCHER_CONFIG.weather) || {};
     }
 
+    function place(key) {
+        return PLACES.find(function (p) { return p.key === key; }) || PLACES[0];
+    }
+
+    function prefsWeather() {
+        return Prefs.get().weather;
+    }
+
+    function coords() {
+        var p = prefsWeather();
+        var chosen = place(p.place);
+        if (chosen.key === 'off') return null;
+        if (typeof chosen.latitude === 'number' && typeof chosen.longitude === 'number') {
+            return { latitude: chosen.latitude, longitude: chosen.longitude, unit: p.unit };
+        }
+        if (p.place === 'custom' && typeof p.latitude === 'number' && typeof p.longitude === 'number') {
+            return { latitude: p.latitude, longitude: p.longitude, unit: p.unit };
+        }
+        return null;
+    }
+
     function configured() {
-        var c = cfg();
-        return typeof c.latitude === 'number' && typeof c.longitude === 'number';
+        return !!coords();
+    }
+
+    function matchPlace(lat, lon) {
+        var best = null;
+        var bestD = Infinity;
+        PLACES.forEach(function (p) {
+            if (typeof p.latitude !== 'number') return;
+            var d = Math.abs(p.latitude - lat) + Math.abs(p.longitude - lon);
+            if (d < bestD) {
+                bestD = d;
+                best = p;
+            }
+        });
+        return bestD < 0.15 ? best.key : null;
+    }
+
+    // Seed prefs.weather from config.js when the user has not chosen a place yet.
+    function seedFromConfig(target) {
+        var c = configDefaults();
+        target.unit = c.unit === 'fahrenheit' ? 'fahrenheit' : 'celsius';
+        if (typeof c.latitude === 'number' && typeof c.longitude === 'number') {
+            var key = matchPlace(c.latitude, c.longitude);
+            if (key) {
+                target.place = key;
+            } else {
+                target.place = 'custom';
+                target.latitude = c.latitude;
+                target.longitude = c.longitude;
+            }
+        } else {
+            target.place = 'off';
+            target.latitude = null;
+            target.longitude = null;
+        }
+        return target;
     }
 
     // ---------- Cache
@@ -113,35 +177,66 @@
         }
     }
 
+    function clearReading() {
+        reading = null;
+        try { localStorage.removeItem(STORE_KEY); } catch (e) { /* ignore */ }
+        listeners.forEach(function (fn) { fn(); });
+    }
+
     function age() {
         return reading && reading.at ? Date.now() - reading.at : Infinity;
     }
 
-    /*
-     * A stale reading is worse than none: an unattended screen showing yesterday's temperature as
-     * if it were now is a confidently wrong answer, so past USABLE_MS the widget simply hides.
-     */
+    function placeLabel() {
+        var p = prefsWeather();
+        if (p.place === 'custom') return 'Custom';
+        var chosen = place(p.place);
+        return chosen.key === 'off' ? '' : chosen.label;
+    }
+
+    function dayLabel(iso, locale) {
+        try {
+            var d = new Date(iso + 'T12:00:00');
+            return d.toLocaleDateString(locale, { weekday: 'short' });
+        } catch (e) {
+            return iso.slice(5);
+        }
+    }
+
     function current() {
         if (!configured() || !reading || age() > USABLE_MS) return null;
         var locale = Prefs.get().appearance.locale;
         var labels = LABELS[locale] || LABELS['en-GB'];
         var name = group(reading.code);
+        var city = placeLabel();
+        var days = (reading.days || []).map(function (d) {
+            var g = group(d.code);
+            return {
+                label: dayLabel(d.date, locale),
+                max: Math.round(d.max) + '°',
+                min: Math.round(d.min) + '°',
+                icon: icon(g)
+            };
+        });
         return {
             temp: Math.round(reading.temp) + '°',
-            detail: labels[name] + ' · ' + Math.round(reading.max) + '° / ' + Math.round(reading.min) + '°',
-            icon: icon(name)
+            range: Math.round(reading.max) + '° / ' + Math.round(reading.min) + '°',
+            place: city,
+            detail: city ? city + ' · ' + labels[name] : labels[name],
+            icon: icon(name),
+            days: days
         };
     }
 
-    // ---------- Fetching
-
     function url() {
-        var c = cfg();
+        var c = coords();
+        if (!c) return '';
         return ENDPOINT +
             '?latitude=' + encodeURIComponent(c.latitude) +
             '&longitude=' + encodeURIComponent(c.longitude) +
             '&current=temperature_2m,weather_code' +
-            '&daily=temperature_2m_max,temperature_2m_min' +
+            '&daily=weather_code,temperature_2m_max,temperature_2m_min' +
+            '&forecast_days=8' +
             (c.unit === 'fahrenheit' ? '&temperature_unit=fahrenheit' : '') +
             '&timezone=auto';
     }
@@ -150,31 +245,36 @@
         var now = data && data.current;
         var day = data && data.daily;
         if (!now || !day || typeof now.temperature_2m !== 'number') return false;
+        if (!day.time || !day.temperature_2m_max || !day.temperature_2m_min) return false;
+        // Strip: next 7 days after today (today is shown in the current block above).
+        var days = [];
+        for (var i = 1; i < day.time.length && days.length < 7; i++) {
+            days.push({
+                date: day.time[i],
+                max: day.temperature_2m_max[i],
+                min: day.temperature_2m_min[i],
+                code: day.weather_code && typeof day.weather_code[i] === 'number' ? day.weather_code[i] : 3
+            });
+        }
         reading = {
             at: Date.now(),
             temp: now.temperature_2m,
             code: typeof now.weather_code === 'number' ? now.weather_code : 3,
             max: day.temperature_2m_max[0],
-            min: day.temperature_2m_min[0]
+            min: day.temperature_2m_min[0],
+            days: days
         };
         store();
         listeners.forEach(function (fn) { fn(); });
         return true;
     }
 
-    /*
-     * The hourly rule is keyed on the last *successful* reading, so on its own it does not slow
-     * down retries: while the API is unreachable every trigger would ask again. This is the
-     * backoff for that — a failed attempt buys ten minutes of quiet, which matters because the
-     * triggers are things the viewer controls (opening the screen saver) rather than a timer.
-     */
     function failed(why) {
         fetching = false;
         lastFailure = Date.now();
         DevLog.log('Weather: ' + why);
     }
 
-    // force: ignore both rules (the Lab entry, so a test does not wait an hour).
     function refresh(force) {
         if (!configured() || fetching) return;
         if (!force && age() < FRESH_MS) return;
@@ -190,7 +290,6 @@
             } catch (e) {
                 ok = false;
             }
-            // Failure is silence: the widget keeps the cached reading, or stays hidden.
             if (ok) {
                 fetching = false;
                 lastFailure = 0;
@@ -203,21 +302,39 @@
         xhr.send();
     }
 
+    function applySettings() {
+        clearReading();
+        lastFailure = 0;
+        if (configured()) refresh(true);
+    }
+
     function start() {
         load();
         if (!configured()) {
-            DevLog.log('Weather off: set weather.latitude and weather.longitude in js/config.js');
+            DevLog.log('Weather off: pick a place in Settings → Weather');
             return;
         }
         refresh();
     }
 
+    function summary() {
+        var p = prefsWeather();
+        if (!configured()) return 'Off';
+        var label = place(p.place).label;
+        if (p.place === 'custom') label = 'Custom';
+        return label + ' · ' + (p.unit === 'fahrenheit' ? '°F' : '°C');
+    }
+
     window.Weather = {
+        PLACES: PLACES,
+        seedFromConfig: seedFromConfig,
+        place: place,
         start: start,
         refresh: refresh,
+        applySettings: applySettings,
         current: current,
         configured: configured,
-        // Exposed so Home can reuse the same marks if weather ever moves there too.
+        summary: summary,
         icon: icon,
         group: group,
         onUpdate: function (fn) { listeners.push(fn); },
@@ -226,7 +343,7 @@
                 label: 'Weather: fetch now and log the reading',
                 run: function () {
                     if (!configured()) {
-                        UI.toast('No coordinates in config.js');
+                        UI.toast('Weather is off — pick a place in Settings');
                         return;
                     }
                     DevLog.log('Weather: requesting ' + url());

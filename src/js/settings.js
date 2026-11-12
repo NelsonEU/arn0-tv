@@ -99,6 +99,11 @@
     function wallpaperSummary() {
         var p = Prefs.get().wallpaper;
         if (p.mode === 'off') return 'Off';
+        if (p.mode === 'live') {
+            var n = window.LiveWallpaper ? LiveWallpaper.max() : 7;
+            var cur = Wallpaper.find(p.liveKey);
+            return cur ? 'Live · ' + cur.title : 'Live · up to ' + n + ' photos';
+        }
         if (p.mode === 'rotate') return 'Rotate · ' + Wallpaper.interval(p.interval).label.toLowerCase();
         var w = Wallpaper.find(p.photo);
         return w ? w.title : 'Photo';
@@ -114,6 +119,8 @@
             { label: 'Appearance', value: Appearance.font(a.font).label + ' · ' + (a.clock === '12h' ? '12-hour' : '24-hour'), run: function () { UI.show('appearance'); } },
             { label: 'Navigation sound', value: soundSummary(), run: function () { UI.show('sound-settings'); } },
             { label: 'Screen saver', value: screensaverSummary(), run: function () { UI.show('screensaver-settings'); } },
+            { label: 'Weather', value: Weather.summary(), run: function () { UI.show('weather-settings'); } },
+            { label: 'Music', value: Music.summary(), run: function () { UI.show('music-settings'); } },
             { label: 'Samsung Home', value: 'Smart Hub and TV settings', run: openSamsungHome },
             { label: 'Advanced', value: 'Refresh, reset, Lab', run: function () { UI.show('advanced'); } }
         ];
@@ -143,10 +150,12 @@
 
     function renderBackground() {
         var p = Prefs.get().wallpaper;
+        var live = p.mode === 'live';
+        var cycle = p.mode === 'rotate' || live;
 
         var modes = $('bg-mode');
         modes.innerHTML = '';
-        [['off', 'Off'], ['photo', 'Photo'], ['rotate', 'Rotate']].forEach(function (m) {
+        [['off', 'Off'], ['photo', 'Photo'], ['rotate', 'Rotate'], ['live', 'Live']].forEach(function (m) {
             modes.appendChild(chip(m[1], p.mode === m[0], { kind: 'mode', key: m[0] }));
         });
 
@@ -155,11 +164,23 @@
         Wallpaper.INTERVALS.forEach(function (i) {
             intervals.appendChild(chip(i.label, p.interval === i.key, { kind: 'interval', key: i.key }));
         });
-        $('bg-interval-block').classList.toggle('hidden', p.mode !== 'rotate');
+        $('bg-interval-block').classList.toggle('hidden', !cycle);
+
+        var liveBlock = $('bg-live-block');
+        if (liveBlock) {
+            liveBlock.classList.toggle('hidden', !live);
+            var max = window.LiveWallpaper ? LiveWallpaper.max() : 7;
+            var pool = live ? Wallpaper.list() : [];
+            var cur = live ? Wallpaper.find(p.liveKey) : null;
+            $('bg-live-status').textContent = cur
+                ? cur.title + (cur.credit ? ' · ' + cur.credit : '')
+                : 'Fetching Bing daily…';
+            $('bg-live-cap').textContent = pool.length + ' of ' + max + ' photos · new one each day, oldest dropped';
+        }
 
         var photos = $('bg-photos');
         photos.innerHTML = '';
-        Wallpaper.list().forEach(function (w) {
+        Wallpaper.bundled().forEach(function (w) {
             var t = el('div', 'thumb' + (p.photo === w.key ? ' on' : ''));
             var img = new Image();
             img.src = w.thumb;
@@ -175,7 +196,7 @@
         var p = Prefs.get().wallpaper;
         if (item.kind === 'mode') {
             p.mode = item.key;
-            if (item.key === 'rotate') p.lastChange = Date.now();
+            if (item.key === 'rotate' || item.key === 'live') p.lastChange = Date.now();
         } else if (item.kind === 'interval') {
             p.interval = item.key;
             p.lastChange = Date.now();
@@ -184,6 +205,7 @@
         }
         Prefs.save();
         Wallpaper.apply();
+        if (p.mode === 'live') Wallpaper.ensureLive();
         renderBackground();
         UI.refresh();
     }
@@ -286,6 +308,178 @@
         if (item.kind === 'preview') Sound.preview();
     }
 
+    // ---------- Music (Subsonic ambient)
+
+    function maskSecret(value) {
+        if (!value) return 'Not set';
+        return '••••••••';
+    }
+
+    function renderMusic() {
+        var p = Prefs.get().music;
+        var c = Subsonic.cfg();
+        var body = $('music-body');
+        body.innerHTML = '';
+
+        var status = el('p', 'setting-note', Music.statusText());
+        body.appendChild(status);
+
+        var serverBlock = el('div', 'setting-block');
+        serverBlock.appendChild(el('h2', '', 'Server'));
+        var serverChips = el('div', 'chips wrap');
+        serverChips.appendChild(chip(c.baseUrl || 'Set server URL', !!c.baseUrl, { kind: 'server' }));
+        serverChips.appendChild(chip(c.user || 'Set username', !!c.user, { kind: 'user' }));
+        serverChips.appendChild(chip(maskSecret(c.password), !!c.password, { kind: 'password' }));
+        serverChips.appendChild(chip('Test connection', false, { kind: 'test' }));
+        serverBlock.appendChild(serverChips);
+        body.appendChild(serverBlock);
+        body.appendChild(el('p', 'setting-note muted', Subsonic.summary()));
+
+        var onBlock = el('div', 'setting-block');
+        onBlock.appendChild(el('h2', '', 'Music'));
+        var onChips = el('div', 'chips');
+        onChips.appendChild(chip('On', p.enabled, { kind: 'enabled', value: true }));
+        onChips.appendChild(chip('Off', !p.enabled, { kind: 'enabled', value: false }));
+        onBlock.appendChild(onChips);
+        body.appendChild(onBlock);
+
+        var volBlock = el('div', 'setting-block');
+        volBlock.appendChild(el('h2', '', 'Volume'));
+        var volChips = el('div', 'chips');
+        Music.VOLUMES.forEach(function (v) {
+            volChips.appendChild(chip(v.label, p.volume === v.key, { kind: 'volume', value: v.key }));
+        });
+        volBlock.appendChild(volChips);
+        body.appendChild(volBlock);
+
+        var ctrlBlock = el('div', 'setting-block');
+        ctrlBlock.appendChild(el('h2', '', 'Controls'));
+        var ctrlChips = el('div', 'chips');
+        ctrlChips.appendChild(chip('Play', false, { kind: 'play' }));
+        ctrlChips.appendChild(chip('Pause', false, { kind: 'pause' }));
+        ctrlChips.appendChild(chip('Next', false, { kind: 'next' }));
+        ctrlBlock.appendChild(ctrlChips);
+        body.appendChild(ctrlBlock);
+
+        body.appendChild(el('p', 'setting-note muted',
+            'Random tracks while this launcher is open. Pauses when you open another app. Saved on the TV — no rebuild needed.'));
+    }
+
+    function activateMusic(item) {
+        var c = Subsonic.cfg();
+        if (item.kind === 'server') {
+            rename(c.baseUrl || 'http://', function (url) {
+                Subsonic.setCreds({ baseUrl: url });
+                Music.pause();
+                Music.renderBar();
+                renderMusic();
+                UI.refresh();
+            }, { title: 'Server URL', maxLength: 120 });
+            return;
+        }
+        if (item.kind === 'user') {
+            rename(c.user || '', function (user) {
+                Subsonic.setCreds({ user: user });
+                Music.pause();
+                Music.renderBar();
+                renderMusic();
+                UI.refresh();
+            }, { title: 'Username', maxLength: 64 });
+            return;
+        }
+        if (item.kind === 'password') {
+            rename('', function (password) {
+                Subsonic.setCreds({ password: password });
+                Music.pause();
+                Music.renderBar();
+                renderMusic();
+                UI.refresh();
+            }, { title: 'Password', maxLength: 64, password: true });
+            return;
+        }
+        if (item.kind === 'test') {
+            if (!Subsonic.configured()) {
+                UI.toast('Set server, user and password first');
+                return;
+            }
+            UI.toast('Testing…');
+            Subsonic.ping().then(function () {
+                UI.toast('Connected');
+                renderMusic();
+                UI.refresh();
+            }).catch(function (e) {
+                UI.toast('Failed: ' + ((e && e.message) || 'error'));
+                renderMusic();
+                UI.refresh();
+            });
+            return;
+        }
+        if (item.kind === 'enabled') {
+            Music.setEnabled(item.value);
+            if (!item.value) Music.pause();
+        } else if (item.kind === 'volume') {
+            Music.setVolume(item.value);
+        } else if (item.kind === 'play') {
+            Music.play();
+        } else if (item.kind === 'pause') {
+            Music.pause();
+        } else if (item.kind === 'next') {
+            Music.next();
+        }
+        renderMusic();
+        UI.refresh();
+    }
+
+    // ---------- Weather
+
+    function renderWeather() {
+        var p = Prefs.get().weather;
+        var body = $('weather-body');
+        body.innerHTML = '';
+
+        var placeBlock = el('div', 'setting-block');
+        placeBlock.appendChild(el('h2', '', 'Place'));
+        var placeChips = el('div', 'chips wrap');
+        Weather.PLACES.forEach(function (place) {
+            placeChips.appendChild(chip(place.label, p.place === place.key,
+                { kind: 'place', value: place.key }));
+        });
+        if (p.place === 'custom') {
+            placeChips.appendChild(chip('Custom', true, { kind: 'place', value: 'custom' }));
+        }
+        placeBlock.appendChild(placeChips);
+        body.appendChild(placeBlock);
+
+        var unitBlock = el('div', 'setting-block');
+        unitBlock.appendChild(el('h2', '', 'Unit'));
+        var unitChips = el('div', 'chips');
+        unitChips.appendChild(chip('Celsius', p.unit === 'celsius', { kind: 'unit', value: 'celsius' }));
+        unitChips.appendChild(chip('Fahrenheit', p.unit === 'fahrenheit', { kind: 'unit', value: 'fahrenheit' }));
+        unitBlock.appendChild(unitChips);
+        body.appendChild(unitBlock);
+
+        var note = el('p', 'setting-note muted',
+            'Shown on the screen saver. Open-Meteo, no API key.');
+        body.appendChild(note);
+    }
+
+    function activateWeather(item) {
+        var p = Prefs.get().weather;
+        if (item.kind === 'place') {
+            p.place = item.value;
+            if (item.value !== 'custom') {
+                p.latitude = null;
+                p.longitude = null;
+            }
+        } else if (item.kind === 'unit') {
+            p.unit = item.value;
+        }
+        Prefs.save();
+        Weather.applySettings();
+        renderWeather();
+        UI.refresh();
+    }
+
     // ---------- Screen saver
 
     function screensaverSummary() {
@@ -294,15 +488,16 @@
     }
 
     /*
-     * "Change photo" only means something while the Background is on Rotate: with a single
-     * photo the screen saver holds it, exactly as Home does.
+     * "Change photo" only means something while the Background is on Rotate or Live: with a
+     * single photo the screen saver holds it, exactly as Home does.
      */
     function screensaverBlocks() {
+        var mode = Prefs.get().wallpaper.mode;
         var blocks = [
             { title: 'Screen saver', key: 'enabled', options: [[true, 'On'], [false, 'Off']] },
             { title: 'Start after', key: 'delay', options: optionPairs(Screensaver.DELAYS) }
         ];
-        if (Prefs.get().wallpaper.mode === 'rotate') {
+        if (mode === 'rotate' || mode === 'live') {
             blocks.push({ title: 'Change photo every', key: 'photoEvery', options: optionPairs(Screensaver.PHOTO_EVERY) });
         }
         blocks.push({ title: 'Go dark after', key: 'dark', options: optionPairs(Screensaver.DARK_AFTER) });
@@ -607,9 +802,15 @@
 
     var renameDone = null;
 
-    function rename(current, done) {
+    function rename(current, done, opts) {
+        opts = opts || {};
         renameDone = done;
-        $('rename-input').value = current;
+        var title = $('rename-title');
+        if (title) title.textContent = opts.title || 'Name';
+        var input = $('rename-input');
+        input.value = current || '';
+        input.maxLength = opts.maxLength || 28;
+        input.type = opts.password ? 'password' : 'text';
         UI.show('rename');
     }
 
@@ -619,6 +820,10 @@
         var done = renameDone;
         renameDone = null;
         input.blur();
+        input.type = 'text';
+        input.maxLength = 28;
+        var title = $('rename-title');
+        if (title) title.textContent = 'Name';
         UI.back();
         if (save && value && done) done(value);
     }
@@ -699,6 +904,31 @@
             activate: activateScreensaver,
             hints: [['OK', 'Select'], ['Back', 'Settings']]
         });
+
+        UI.register('weather-settings', {
+            el: $('weather-settings'),
+            rows: function () { return chipRows($('weather-body')); },
+            onShow: renderWeather,
+            activate: activateWeather,
+            hints: [['OK', 'Select'], ['Back', 'Settings']]
+        });
+
+        UI.register('music-settings', {
+            el: $('music-settings'),
+            rows: function () { return chipRows($('music-body')); },
+            onShow: renderMusic,
+            activate: activateMusic,
+            hints: [['OK', 'Select'], ['Back', 'Settings']]
+        });
+
+        if (window.Music) {
+            Music.onUpdate(function () {
+                if (UI.isVisible && UI.isVisible('music-settings')) {
+                    renderMusic();
+                    UI.refresh();
+                }
+            });
+        }
 
         UI.register('homeapps', {
             el: $('homeapps'),

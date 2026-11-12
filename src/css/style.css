@@ -83,7 +83,22 @@ html, body {
     width: 1920px;
     height: 1080px;
     background: var(--bg) url("../img/bg.jpg") center / cover no-repeat;
-    will-change: transform;
+}
+
+/*
+ * Same readability darkening prepare-wallpapers.mjs bakes into bundled JPEGs. Only shown for
+ * remote live images (one static layer — not the multi-radial glow the Lab probe ruled out).
+ */
+#bg-scrim {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 1920px;
+    height: 1080px;
+    pointer-events: none;
+    background:
+        radial-gradient(1300px 700px at 0% 0%, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0) 70%),
+        linear-gradient(to bottom, rgba(0, 0, 0, 0.25) 0%, rgba(0, 0, 0, 0.30) 30%, rgba(0, 0, 0, 0.62) 62%, rgba(0, 0, 0, 0.82) 100%);
 }
 
 .view {
@@ -109,6 +124,10 @@ h1, h2 {
     position: absolute;
     top: 88px;
     left: var(--edge);
+    right: calc(var(--edge) + 100px);
+    display: flex;
+    align-items: center;
+    gap: 36px;
 }
 
 #time {
@@ -130,6 +149,100 @@ h1, h2 {
     font-size: 34px;
     font-weight: 500;
     color: var(--muted);
+}
+
+.clock.with-weather .clock-main {
+    border-right: 1px solid rgba(220, 224, 232, 0.22);
+    padding-right: 36px;
+}
+
+.home-weather {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.home-wx-now {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+}
+
+.home-wx-icon {
+    align-self: center;
+}
+
+.home-wx-icon svg {
+    display: block;
+    width: 32px;
+    height: 36px;
+    color: rgba(243, 244, 246, 0.9);
+}
+
+.home-wx-temp {
+    font-size: 36px;
+    font-weight: 300;
+    line-height: 1;
+    color: rgba(243, 244, 246, 0.95);
+}
+
+.home-wx-pipe {
+    font-size: 22px;
+    font-weight: 300;
+    color: rgba(220, 224, 232, 0.35);
+}
+
+.home-wx-range {
+    font-size: 22px;
+    font-weight: 400;
+    color: rgba(220, 224, 232, 0.55);
+}
+
+.home-wx-detail {
+    margin-top: 8px;
+    font-size: 22px;
+    color: rgba(220, 224, 232, 0.6);
+}
+
+.home-wx-week {
+    display: flex;
+    justify-content: center;
+    gap: 18px;
+    margin-top: 14px;
+}
+
+.home-wx-day {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 56px;
+}
+
+.home-wx-day-label {
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: rgba(220, 224, 232, 0.5);
+}
+
+.home-wx-day-icon svg {
+    display: block;
+    width: 22px;
+    height: 24px;
+    margin: 6px 0;
+    color: rgba(243, 244, 246, 0.85);
+}
+
+.home-wx-day-temps {
+    font-size: 16px;
+    font-weight: 500;
+    color: rgba(220, 224, 232, 0.7);
+    white-space: nowrap;
+}
+
+.home-wx-day-temps span {
+    color: rgba(220, 224, 232, 0.4);
 }
 
 /* Appearance options */
@@ -178,6 +291,9 @@ h1, h2 {
     position: relative;
     height: 170px;
     border-radius: 22px;
+    box-sizing: border-box;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
 }
 
 /* Home tiles get their own layer so focus scaling never repaints. The All apps grid has
@@ -192,6 +308,7 @@ h1, h2 {
     font-size: 26px;
     font-weight: 500;
     color: var(--faint);
+    text-align: center;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -200,7 +317,7 @@ h1, h2 {
 .app.focused .tile,
 .input.focused .tile {
     transform: scale(1.07);
-    box-shadow: 0 0 0 5px var(--ring);
+    box-shadow: 0 0 0 5px var(--ring), inset 0 1px 0 rgba(255, 255, 255, 0.28);
 }
 
 .app.focused .label {
@@ -245,18 +362,19 @@ h1, h2 {
     color: rgba(255, 255, 255, 0.9);
 }
 
+/* Native app icons: fill the tile after transparent margins are auto-cropped. */
 .icon {
     position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 120px;
-    height: 120px;
-    margin: -60px 0 0 -60px;
+    top: 6%;
+    left: 6%;
+    width: 88%;
+    height: 88%;
+    margin: 0;
     object-fit: contain;
 }
 
 .all-tile {
-    background: rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.12);
 }
 
 .all-tile svg {
@@ -279,8 +397,11 @@ h1, h2 {
 .input .tile {
     height: 190px;
     display: flex;
+    flex-direction: column;
     align-items: center;
-    padding: 0 40px;
+    justify-content: center;
+    padding: 0 28px;
+    text-align: center;
 }
 
 .input .mark {
@@ -288,17 +409,19 @@ h1, h2 {
     top: auto;
     left: auto;
     flex: none;
-    width: 80px;
-    height: 80px;
-    margin-right: 30px;
+    width: 64px;
+    height: 64px;
+    margin: 0 0 12px;
 }
 
 .input .meta {
     min-width: 0;
+    width: 100%;
+    text-align: center;
 }
 
 .input .name {
-    font-size: 34px;
+    font-size: 30px;
     font-weight: 700;
     color: #fff;
     line-height: 1.15;
@@ -308,8 +431,8 @@ h1, h2 {
 }
 
 .input .port {
-    margin-top: 10px;
-    font-size: 24px;
+    margin-top: 8px;
+    font-size: 22px;
     font-weight: 500;
     color: rgba(255, 255, 255, 0.75);
 }
@@ -350,6 +473,104 @@ h1, h2 {
 }
 
 .gear.focused {
+    background: var(--fg);
+    color: var(--bg);
+    transform: scale(1.08);
+}
+
+/* ---------- Home music (beside weather) ---------- */
+
+.home-music-sep {
+    flex: none;
+    font-size: 28px;
+    font-weight: 300;
+    line-height: 1;
+    color: rgba(220, 224, 232, 0.35);
+}
+
+.music-bar {
+    position: relative;
+    flex: none;
+    width: 340px;
+    max-width: 340px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: transparent;
+}
+
+.music-meta {
+    min-width: 0;
+    flex: 1;
+}
+
+.music-now-title {
+    font-size: 22px;
+    font-weight: 600;
+}
+
+.music-now-artist {
+    margin-top: 2px;
+    font-size: 17px;
+    font-weight: 500;
+    color: var(--muted);
+}
+
+/* Long now-playing lines: static ellipsis when paused; scroll only while playing. */
+.marquee {
+    overflow: hidden;
+    width: 100%;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.marquee-track {
+    display: inline-flex;
+    width: max-content;
+}
+
+.marquee-track > span {
+    padding-right: 48px;
+}
+
+.marquee.scroll .marquee-track {
+    will-change: transform;
+    /* Three full loops, then JS clears .scroll and freezes the label. */
+    animation: marquee-x 14s linear 3 forwards;
+}
+
+@keyframes marquee-x {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+}
+
+.music-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.music-btn {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    color: var(--fg);
+    background: rgba(255, 255, 255, 0.08);
+    position: relative;
+    will-change: transform;
+    transition: transform 0.1s ease-out, background 0.1s ease-out;
+}
+
+.music-btn svg {
+    position: absolute;
+    top: 11px;
+    left: 11px;
+    width: 26px;
+    height: 26px;
+}
+
+.music-btn.focused {
     background: var(--fg);
     color: var(--bg);
     transform: scale(1.08);
@@ -494,8 +715,31 @@ h1, h2 {
     color: var(--muted);
 }
 
+.setting-note {
+    margin: 0 0 12px;
+    font-size: 28px;
+    font-weight: 500;
+    color: var(--text);
+    max-width: 1400px;
+}
+
+.setting-note.muted {
+    color: var(--muted);
+    font-size: 24px;
+    font-weight: 400;
+}
+
 .chips {
     display: flex;
+}
+
+.chips.wrap {
+    flex-wrap: wrap;
+    gap: 16px 0;
+}
+
+.chips.wrap .chip {
+    margin-bottom: 0;
 }
 
 .chip {
@@ -630,9 +874,11 @@ h1, h2 {
 .mini .mono { font-size: 22px; letter-spacing: 0; }
 
 .mini .icon {
-    width: 40px;
-    height: 40px;
-    margin: -20px 0 0 -20px;
+    top: 12%;
+    left: 12%;
+    width: 76%;
+    height: 76%;
+    margin: 0;
 }
 
 /* Pop-up menu */
@@ -761,7 +1007,7 @@ footer {
 
 #toast {
     position: absolute;
-    bottom: 110px;
+    bottom: 230px;
     left: 50%;
     width: 900px;
     margin-left: -450px;
@@ -934,6 +1180,28 @@ html.preview, html.preview body {
     letter-spacing: 0.18em;
     text-transform: uppercase;
     color: rgba(220, 224, 232, 0.75);
+}
+
+/* Now-playing, above the photo caption; display-only (any key still dismisses). */
+.ss-music {
+    position: absolute;
+    left: var(--edge);
+    bottom: 160px;
+    width: 720px;
+    transition: transform 1200ms ease-out;
+}
+
+.ss-music-title {
+    font-size: 28px;
+    font-weight: 600;
+    color: rgba(243, 244, 246, 0.92);
+}
+
+.ss-music-artist {
+    margin-top: 6px;
+    font-size: 22px;
+    font-weight: 500;
+    color: rgba(220, 224, 232, 0.6);
 }
 
 /*
