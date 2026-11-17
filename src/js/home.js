@@ -65,22 +65,76 @@
             .replace(/hsl\(([^)]+)\)/g, function (_, body) { return 'hsla(' + body + ',' + alpha + ')'; });
     }
 
+    var ICON_PX = 192;
+
     /*
      * Many Tizen icons ship with empty transparent margins. Crop to opaque pixels so the
-     * artwork fills the tile without a per-app pad. Falls back silently if the canvas is
-     * tainted (some file:// paths) or the icon is already full-bleed.
+     * artwork fills the tile without a per-app pad. Box icons (a solid rectangle with partly
+     * transparent edges) have their background cleared, so the tile shows through.
      */
+    // Clears the background colour of a box icon, starting from the edges so the logo stays.
+    function clearBackground(canvas, bgR, bgG, bgB) {
+        var w = canvas.width;
+        var h = canvas.height;
+        var out = document.createElement('canvas');
+        out.width = w;
+        out.height = h;
+        var octx = out.getContext('2d');
+        octx.drawImage(canvas, 0, 0);
+        var clearData = octx.getImageData(0, 0, w, h);
+        var cd = clearData.data;
+        var visited = new Uint8Array(w * h);
+        var stack = [];
+        var seed = function (q) {
+            if (!visited[q] && cd[q * 4 + 3] > 0) {
+                visited[q] = 1;
+                stack.push(q);
+            }
+        };
+        var bx;
+        var by;
+        for (bx = 0; bx < w; bx++) {
+            seed(bx);
+            seed((h - 1) * w + bx);
+        }
+        for (by = 0; by < h; by++) {
+            seed(by * w);
+            seed(by * w + w - 1);
+        }
+        while (stack.length) {
+            var q = stack.pop();
+            var o = q * 4;
+            if (Math.abs(cd[o] - bgR) >= 60 || Math.abs(cd[o + 1] - bgG) >= 60 || Math.abs(cd[o + 2] - bgB) >= 60) continue;
+            cd[o + 3] = 0;
+            var qx = q % w;
+            if (qx > 0) seed(q - 1);
+            if (qx < w - 1) seed(q + 1);
+            if (q >= w) seed(q - w);
+            if (q < w * (h - 1)) seed(q + w);
+        }
+        octx.putImageData(clearData, 0, 0);
+        try {
+            return out.toDataURL('image/png');
+        } catch (e) {
+            return null;
+        }
+    }
+
     function trimIconPadding(img, done) {
-        var w = img.naturalWidth;
-        var h = img.naturalHeight;
-        if (!w || !h) { done(null); return; }
+        var sw = img.naturalWidth;
+        var sh = img.naturalHeight;
+        if (!sw || !sh) { done(null); return; }
+        // Tiles are small, so work on a copy at most ICON_PX wide: much cheaper to process.
+        var scale = Math.min(1, ICON_PX / Math.max(sw, sh));
+        var w = Math.max(1, Math.round(sw * scale));
+        var h = Math.max(1, Math.round(sh * scale));
         var canvas = document.createElement('canvas');
         canvas.width = w;
         canvas.height = h;
         var ctx = canvas.getContext('2d');
         if (!ctx) { done(null); return; }
         try {
-            ctx.drawImage(img, 0, 0);
+            ctx.drawImage(img, 0, 0, w, h);
             var data = ctx.getImageData(0, 0, w, h).data;
         } catch (e) {
             done(null);
@@ -102,6 +156,48 @@
             if (y > maxY) maxY = y;
         }
         if (maxX < 0) { done(null); return; }
+        // Box icon: all four corners are partly visible.
+        var isBox = [[0, 0], [w - 1, 0], [0, h - 1], [w - 1, h - 1]].every(function (c) {
+            return data[(c[1] * w + c[0]) * 4 + 3] >= 40;
+        });
+        // Solid area bounds, and the artwork's background colour sampled just inside its edges.
+        var sx0 = w;
+        var sy0 = h;
+        var sx1 = -1;
+        var sy1 = -1;
+        for (i = 3; i < data.length; i += 4) {
+            if (data[i] < 200) continue;
+            var q = (i - 3) / 4;
+            var qx = q % w;
+            var qy = (q - qx) / w;
+            if (qx < sx0) sx0 = qx;
+            if (qy < sy0) sy0 = qy;
+            if (qx > sx1) sx1 = qx;
+            if (qy > sy1) sy1 = qy;
+        }
+        var sum = [0, 0, 0];
+        var n = 0;
+        if (sx1 >= 0) {
+            var bw = sx1 - sx0 + 1;
+            var bh = sy1 - sy0 + 1;
+            for (i = 3; i < data.length; i += 4) {
+                if (data[i] < 200) continue;
+                var p2 = (i - 3) / 4;
+                var px2 = p2 % w;
+                var py2 = (p2 - px2) / w;
+                var edge = px2 < sx0 + bw * 0.08 || px2 > sx1 - bw * 0.08 ||
+                    py2 < sy0 + bh * 0.08 || py2 > sy1 - bh * 0.08;
+                if (!edge) continue;
+                sum[0] += data[i - 3];
+                sum[1] += data[i - 2];
+                sum[2] += data[i - 1];
+                n++;
+            }
+        }
+        if (isBox && n) {
+            done(clearBackground(canvas, sum[0] / n, sum[1] / n, sum[2] / n));
+            return;
+        }
         var margin = Math.max(1, Math.round(Math.max(w, h) * 0.02));
         minX = Math.max(0, minX - margin);
         minY = Math.max(0, minY - margin);
@@ -113,7 +209,7 @@
         var out = document.createElement('canvas');
         out.width = cw;
         out.height = ch;
-        out.getContext('2d').drawImage(img, minX, minY, cw, ch, 0, 0, cw, ch);
+        out.getContext('2d').drawImage(canvas, minX, minY, cw, ch, 0, 0, cw, ch);
         try {
             done(out.toDataURL('image/png'));
         } catch (e2) {
@@ -121,11 +217,15 @@
         }
     }
 
+    // Processed icons are kept for the session, so each one is only drawn to a canvas once.
+    var iconCache = {};
+
     // Installed apps report a native path; it may or may not be readable from a web app.
     // pad: optional [vertical, horizontal] inset % override after auto-trim.
     function tryIcon(tile, mono, path, pad) {
         var img = new Image();
         img.className = 'icon';
+        if (iconCache[path]) img._ready = true;
         if (pad) {
             img.style.top = pad[0] + '%';
             img.style.height = (100 - 2 * pad[0]) + '%';
@@ -140,6 +240,7 @@
             }
             trimIconPadding(img, function (url) {
                 img._ready = true;
+                iconCache[path] = url || img.src;
                 if (url) img.src = url;
                 else {
                     mono.style.display = 'none';
@@ -147,7 +248,7 @@
                 }
             });
         };
-        img.src = path.charAt(0) === '/' ? 'file://' + path : path;
+        img.src = iconCache[path] || (path.charAt(0) === '/' ? 'file://' + path : path);
     }
 
     function tileFace(item) {
@@ -403,8 +504,6 @@
             if (view === 'all') {
                 state.showEverything = !state.showEverything;
                 UI.show('all', { back: true });
-            } else if (view === 'home' && window.RunnerGame) {
-                RunnerGame.open();
             } else return false;
         } else {
             return false;
@@ -474,28 +573,6 @@
     }
 
     var listeners = [];
-    /*
-     * Hidden game code: Left and Right alternating three times.
-     *
-     * Two properties matter on a remote. It is matched against the tail of the last few keys,
-     * not with a position counter, because a held key repeats and one extra press would
-     * otherwise reset progress so the code could never complete. And it alternates rather than
-     * repeating a key, because both auto-repeat and sweeping along a row produce runs of the
-     * same key — a code made of runs fires by accident during ordinary browsing.
-     */
-    var gameCode = [KEY.LEFT, KEY.RIGHT, KEY.LEFT, KEY.RIGHT, KEY.LEFT, KEY.RIGHT];
-    var recentKeys = [];
-
-    function gameCodeEntered(k) {
-        recentKeys.push(k);
-        if (recentKeys.length > gameCode.length) recentKeys.shift();
-        if (recentKeys.length < gameCode.length) return false;
-        for (var i = 0; i < gameCode.length; i++) {
-            if (recentKeys[i] !== gameCode[i]) return false;
-        }
-        recentKeys.length = 0;
-        return true;
-    }
 
     function setApps(apps) {
         var sig = apps.map(function (a) { return a.id + '|' + a.name + '|' + a.show; }).join(',');
@@ -554,7 +631,10 @@
                 }
             },
             // Home is the root: Back does nothing.
-            onBack: function () { return true; }
+            onBack: function () { return true; },
+            onFocus: function (el) {
+                if (window.Music && (el === $('music-btn-play') || el === $('music-btn-next'))) Music.showFull();
+            }
         });
         $('gear')._item = { kind: 'settings' };
 
@@ -581,11 +661,6 @@
         UI.setKeyHook(function (k) {
             if (state.tvMode) {
                 if (k === KEY.BACK || k === KEY.ESC || k === KEY.BACKSPACE) exitTvMode();
-                return true;
-            }
-            if (!UI.isVisible('home')) { recentKeys.length = 0; return false; }
-            if (gameCodeEntered(k)) {
-                if (window.RunnerGame) RunnerGame.open(true);
                 return true;
             }
             return false;

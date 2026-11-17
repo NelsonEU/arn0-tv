@@ -19,7 +19,8 @@
             wallpaper: {
                 mode: theme.wallpaper ? 'photo' : 'off',   // 'off' | 'photo' | 'rotate' | 'live'
                 photo: theme.wallpaper || 'forest',
-                liveKey: '',            // current entry in the live pool (Bing date key)
+                liveProvider: 'bing',   // 'bing' | 'nasa' | 'wikimedia' | 'unsplash'
+                liveKey: '',            // current entry in the live pool (date key)
                 interval: '15m',        // see Wallpaper.INTERVALS (rotate + live cycle)
                 lastChange: 0
             },
@@ -109,7 +110,11 @@
         } catch (e) {
             // Nothing stored, nothing to clear.
         }
-        if (window.LiveWallpaper) LiveWallpaper.clearCache();
+        if (window.LiveWallpaper) {
+            LiveWallpaper.clearCache();
+            if (LiveWallpaper.clearUnsplashKey) LiveWallpaper.clearUnsplashKey();
+            if (LiveWallpaper.clearImmichLink) LiveWallpaper.clearImmichLink();
+        }
         if (window.Subsonic) Subsonic.clearCreds();
         prefs = defaults();
     }

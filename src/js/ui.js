@@ -183,6 +183,15 @@
     // Scrolls the focused element's track with a transform (no layout scrolling).
     // Horizontal for .row-track, vertical for .grid and .vtrack.
     function ensureVisible(item) {
+        var scroller = item.closest && item.closest('.scroll-y');
+        if (scroller) {
+            var r = item.getBoundingClientRect();
+            var p = scroller.getBoundingClientRect();
+            var pad = 24;
+            if (r.bottom > p.bottom - pad) scroller.scrollTop += r.bottom - (p.bottom - pad);
+            else if (r.top < p.top + pad) scroller.scrollTop -= (p.top + pad) - r.top;
+            return;
+        }
         var track = item.parentNode;
         var horizontal = track.classList.contains('row-track');
         var vertical = track.classList.contains('grid') || track.classList.contains('vtrack');

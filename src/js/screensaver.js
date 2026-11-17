@@ -54,7 +54,8 @@
     var HELD_LEG_MS = 90 * 1000;    // one leg of the drift when a single photo is held
     var CLOCK_MOVE_MS = 150 * 1000; // "every 2-3 minutes"
     var CLOCK_POSITIONS = 4;        // .ss-clock.pos-0 .. pos-3
-    var NUDGES = [[0, 0], [7, -5], [-6, 6], [4, 8]];
+    var CLOCK_FADE_MS = 1500;       // fade out, move corner, fade in (matches .ss-clock transition)
+    var SCROLL_EVERY_MS = 60 * 1000; // repeat the scroll of long caption / music lines (3 × 14 s pass + pause)
     var FADE_MS = 2000;             // crossfade, also set as the default in the stylesheet
     var POLL_MS = 1000;
 
@@ -68,9 +69,10 @@
     var openedAt = 0;
     var nextPhotoAt = 0;
     var nextClockMoveAt = 0;
+    var nextScrollAt = 0;
+    var captionText = '';
     var nextPanAt = 0;
     var panSign = 1;            // flipped on each leg, so the drift alternates direction
-    var nudge = 0;
     var lastClockText = '';
     var clockPos = 0;
     var dark = false;
@@ -165,6 +167,7 @@
             nextPanAt = 0;
             return;
         }
+        applyTone(w.thumb || w.file, token);
         var swapped = false;
         var swap = function () {
             if (swapped || token !== photoToken || !open) return;
@@ -186,6 +189,61 @@
         img.onerror = function () { DevLog.log('Screen saver photo failed: ' + w.file); };
         img.src = w.file;
         if (img.complete && img.naturalWidth) swap();
+    }
+
+    // ---------- Text tone
+
+    // Text is white by default. Where the photo is bright behind the caption, the text switches
+    // to dark. The brightness is read from a CORS-enabled copy of the image; a host without CORS
+    // headers keeps the white default, and the photo itself is never affected.
+    var TONE_W = 64;
+    var TONE_H = 36;
+    var SCRIM_KEEP = 0.5;        // share of the photo still visible under the caption scrim
+    var DARK_TEXT_ABOVE = 0.38;  // relative luminance (after scrim) above which dark text reads better
+    var toneCache = {};
+
+    function linear(c) {
+        c /= 255;
+        return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    }
+
+    function measureTone(url, done) {
+        if (toneCache[url]) { done(toneCache[url]); return; }
+        var img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = function () {
+            var tone = 'white';
+            try {
+                var c = document.createElement('canvas');
+                c.width = TONE_W;
+                c.height = TONE_H;
+                var ctx = c.getContext('2d');
+                ctx.drawImage(img, 0, 0, TONE_W, TONE_H);
+                // Bottom-left: where the caption sits.
+                var w = Math.round(TONE_W * 0.4);
+                var h = Math.round(TONE_H * 0.4);
+                var data = ctx.getImageData(0, TONE_H - h, w, h).data;
+                var sum = 0;
+                for (var i = 0; i < data.length; i += 4) {
+                    sum += 0.2126 * linear(data[i]) + 0.7152 * linear(data[i + 1]) + 0.0722 * linear(data[i + 2]);
+                }
+                var lum = SCRIM_KEEP * sum / (data.length / 4);
+                tone = lum > DARK_TEXT_ABOVE ? 'dark' : 'white';
+            } catch (e) {
+                // Tainted canvas (no CORS on the host): keep the white default.
+            }
+            toneCache[url] = tone;
+            done(tone);
+        };
+        img.onerror = function () { done('white'); };
+        img.src = url;
+    }
+
+    function applyTone(url, token) {
+        measureTone(url, function (tone) {
+            if (token !== photoToken || !open) return;
+            $('screensaver').classList.toggle('tone-dark', tone === 'dark');
+        });
     }
 
     // ---------- Text
@@ -214,17 +272,18 @@
     }
 
     function caption(w) {
-        $('ss-title').textContent = w ? w.title : '';
+        captionText = w ? w.title : '';
+        if (window.Music) Music.fillMarquee($('ss-title'), captionText, true);
+        else $('ss-title').textContent = captionText;
+        $('ss-sub').textContent = w && w.sub ? w.sub : '';
         $('ss-caption').classList.toggle('hidden', !w);
     }
 
-    // A few pixels on each photo change, so even the text that stays put does not stay put.
-    function nudgeText() {
-        nudge = (nudge + 1) % NUDGES.length;
-        var shift = 'translate(' + NUDGES[nudge][0] + 'px, ' + NUDGES[nudge][1] + 'px)';
-        $('ss-caption').style.transform = shift;
-        $('ss-music').style.transform = shift;
-        $('ss-clock').style.transform = shift;
+    // Long lines scroll for a few loops and freeze; repeating the scroll now and then keeps
+    // them readable without a permanent animation.
+    function refreshScroll() {
+        if (window.Music) Music.fillMarquee($('ss-title'), captionText, true);
+        renderMusic();
     }
 
     // Swaps the position class without touching the others, which now include `with-weather`.
@@ -236,8 +295,16 @@
 
     function moveClock() {
         clockPos = (clockPos + 1) % CLOCK_POSITIONS;
-        setClockPos(clockPos);
         nextClockMoveAt = Date.now() + CLOCK_MOVE_MS;
+        // Fade out, change corner while invisible, fade back in: a corner change cannot be
+        // tweened because each corner sets different edge properties.
+        var el = $('ss-clock');
+        el.style.opacity = '0';
+        setTimeout(function () {
+            if (!open) return;
+            setClockPos(clockPos);
+            el.style.opacity = '1';
+        }, CLOCK_FADE_MS);
     }
 
     // Hidden outright when there is no usable reading: see the note on staleness in weather.js.
@@ -275,7 +342,6 @@
         open = true;
         dark = false;
         front = 0;
-        nudge = 0;
         clockPos = 0;
         photoIndex = startIndex();
         panSign = 1;
@@ -285,15 +351,14 @@
         resetPan(layers[0], panSign);
         resetPan(layers[1], panSign);
         $('ss-dark').style.opacity = '0';
-        $('ss-caption').style.transform = '';
-        $('ss-music').style.transform = '';
         setClockPos(0);
-        $('ss-clock').style.transform = '';
+        $('ss-clock').style.opacity = '1';
 
         var now = Date.now();
         openedAt = now;
         nextPhotoAt = now + photoEvery().ms;
         nextClockMoveAt = now + CLOCK_MOVE_MS;
+        nextScrollAt = now + SCROLL_EVERY_MS;
         nextPanAt = 0;
 
         UI.show('screensaver');
@@ -322,12 +387,15 @@
         // Behind an opaque black layer there is nothing worth moving.
         if (dark) return;
         if (now >= nextClockMoveAt) moveClock();
+        if (now >= nextScrollAt) {
+            nextScrollAt = now + SCROLL_EVERY_MS;
+            refreshScroll();
+        }
         if (rotating() && now >= nextPhotoAt) {
             photoIndex++;
             nextPhotoAt = now + photoEvery().ms;
             var w = photoAt(photoIndex);
             caption(w);
-            nudgeText();
             showPhoto(w);
         } else if (nextPanAt && now >= nextPanAt) {
             // A held photo has reached the far corner; send it back the other way.

@@ -326,10 +326,10 @@ h1, h2 {
 
 .mark {
     position: absolute;
-    top: 26%;
-    left: 22%;
-    width: 56%;
-    height: 48%;
+    top: 12%;
+    left: 12%;
+    width: 76%;
+    height: 76%;
     object-fit: contain;
 }
 
@@ -692,6 +692,17 @@ h1, h2 {
     top: 220px;
     left: var(--edge);
     right: var(--edge);
+}
+
+/* Scrolls inside its own box so the hints at the bottom stay readable; ui.js keeps focus in view. */
+.scroll-y {
+    bottom: 96px;
+    overflow-y: auto;
+    scrollbar-width: none;
+}
+
+.scroll-y::-webkit-scrollbar {
+    display: none;
 }
 
 .setting-block {
@@ -1170,7 +1181,8 @@ html.preview, html.preview body {
 .ss-caption {
     position: absolute;
     left: var(--edge);
-    bottom: 96px;
+    bottom: 40px;
+    width: 960px;
     transition: transform 1200ms ease-out;
 }
 
@@ -1178,8 +1190,29 @@ html.preview, html.preview body {
     font-size: 26px;
     font-weight: 600;
     letter-spacing: 0.18em;
-    text-transform: uppercase;
     color: rgba(220, 224, 232, 0.75);
+}
+
+.ss-sub {
+    margin-top: 8px;
+    font-size: 22px;
+    font-weight: 500;
+    color: rgba(220, 224, 232, 0.6);
+}
+
+/* Dark text where the photo is bright behind the caption; chosen in js/screensaver.js. */
+#screensaver.tone-dark .ss-title,
+#screensaver.tone-dark .ss-time,
+#screensaver.tone-dark .ss-date,
+#screensaver.tone-dark .ss-music-title,
+#screensaver.tone-dark .ss-music-artist,
+#screensaver.tone-dark .ss-wx-temp,
+#screensaver.tone-dark .ss-wx-detail {
+    color: #0b0d12;
+}
+
+#screensaver.tone-dark .ss-wx-icon svg {
+    color: #0b0d12;
 }
 
 /* Now-playing, above the photo caption; display-only (any key still dismisses). */
@@ -1214,7 +1247,7 @@ html.preview, html.preview body {
     /* Bottom-aligned so the weather detail and the date share a baseline. */
     align-items: flex-end;
     gap: 36px;
-    transition: transform 1200ms ease-out;
+    transition: opacity 1500ms ease-in-out;
 }
 
 .ss-clock.pos-0 { right: var(--edge); bottom: 96px; }

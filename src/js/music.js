@@ -204,6 +204,13 @@
         });
     }
 
+    // Focusing the bar scrolls the title and artist once more, so a long line can be read in full.
+    function showFull() {
+        if (!current) return;
+        fillMarquee(document.getElementById('music-now-title'), current.title, true);
+        fillMarquee(document.getElementById('music-now-artist'), current.artist || current.album || '', true);
+    }
+
     function renderBar() {
         var bar = document.getElementById('music-bar');
         var sep = document.getElementById('home-music-sep');
@@ -318,6 +325,7 @@
         statusText: statusText,
         summary: summary,
         renderBar: renderBar,
+        showFull: showFull,
         fillMarquee: fillMarquee,
         barVisible: barVisible,
         onUpdate: function (fn) { listeners.push(fn); }

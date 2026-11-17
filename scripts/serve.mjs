@@ -1,4 +1,5 @@
 // Serves src/ for desktop preview. Arrow keys + Enter navigate, Esc/Backspace = Back.
+// Also proxies Bing / NASA APOD / Unsplash so Live wallpapers can fetch despite browser CORS.
 import { createServer } from 'node:http';
 import { readFile, writeFile, access } from 'node:fs/promises';
 import { extname, join, normalize, resolve } from 'node:path';
@@ -26,8 +27,118 @@ const types = {
     '.xml': 'application/xml'
 };
 
+const UNSPLASH_API = 'https://api.unsplash.com';
+
+async function proxyJson(res, url, headers) {
+    try {
+        const upstream = await fetch(url, {
+            headers: Object.assign({ Accept: 'application/json' }, headers || {}),
+            signal: AbortSignal.timeout(15000)
+        });
+        const body = Buffer.from(await upstream.arrayBuffer());
+        res.writeHead(upstream.status, {
+            'Content-Type': 'application/json; charset=utf-8',
+            'Cache-Control': 'no-store'
+        });
+        res.end(body);
+    } catch (e) {
+        res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: String(e && e.message ? e.message : e) }));
+    }
+}
+
 createServer(async (req, res) => {
-    const path = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+    const u = new URL(req.url, 'http://x');
+    const path = decodeURIComponent(u.pathname);
+
+    if (path === '/api/live/bing') {
+        const idx = u.searchParams.get('idx') || '0';
+        const n = u.searchParams.get('n') || '1';
+        const mkt = u.searchParams.get('mkt') || 'en-GB';
+        const url = 'https://www.bing.com/HPImageArchive.aspx?format=js&idx=' +
+            encodeURIComponent(idx) + '&n=' + encodeURIComponent(n) +
+            '&mkt=' + encodeURIComponent(mkt);
+        await proxyJson(res, url);
+        return;
+    }
+
+    if (path === '/api/live/apod') {
+        // Raw APOD page; the browser parses it the same way it does on the TV.
+        const date = u.searchParams.get('date') || '';
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+            res.writeHead(400).end();
+            return;
+        }
+        const d = date.split('-');
+        try {
+            const upstream = await fetch(`https://apod.nasa.gov/apod/ap${d[0].slice(2)}${d[1]}${d[2]}.html`, {
+                signal: AbortSignal.timeout(15000)
+            });
+            res.writeHead(upstream.status, {
+                'Content-Type': 'text/html; charset=utf-8',
+                'Cache-Control': 'no-store'
+            });
+            res.end(Buffer.from(await upstream.arrayBuffer()));
+        } catch (e) {
+            res.writeHead(502, { 'Content-Type': 'text/plain; charset=utf-8' });
+            res.end(String(e && e.message ? e.message : e));
+        }
+        return;
+    }
+
+    if (path === '/api/live/immich') {
+        // Preview only: the Immich server is not CORS-enabled for the browser preview origin.
+        const target = new URL(u.searchParams.get('url') || '');
+        const allowed = ['/api/shared-links/me', '/api/search/metadata'];
+        if (!/^https?:$/.test(target.protocol) || !allowed.some((p) => target.pathname.endsWith(p))) {
+            res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+            res.end(JSON.stringify({ error: 'url not allowed' }));
+            return;
+        }
+        const post = req.method === 'POST';
+        let body;
+        if (post) {
+            const chunks = [];
+            for await (const c of req) chunks.push(c);
+            body = Buffer.concat(chunks);
+        }
+        try {
+            const upstream = await fetch(target.toString(), {
+                method: post ? 'POST' : 'GET',
+                headers: post ? { 'Content-Type': 'application/json', Accept: 'application/json' } : { Accept: 'application/json' },
+                body,
+                signal: AbortSignal.timeout(15000)
+            });
+            res.writeHead(upstream.status, {
+                'Content-Type': 'application/json; charset=utf-8',
+                'Cache-Control': 'no-store'
+            });
+            res.end(Buffer.from(await upstream.arrayBuffer()));
+        } catch (e) {
+            res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
+            res.end(JSON.stringify({ error: String(e && e.message ? e.message : e) }));
+        }
+        return;
+    }
+
+    if (path === '/api/live/unsplash') {
+        const auth = req.headers.authorization || '';
+        if (!/^Client-ID\s+\S+/i.test(auth)) {
+            res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' });
+            res.end(JSON.stringify({ error: 'Unsplash Access Key required' }));
+            return;
+        }
+        // Only Unsplash photo endpoints may be reached through the proxy.
+        const target = new URL(u.searchParams.get('path') || '', UNSPLASH_API);
+        if (target.origin !== UNSPLASH_API || !target.pathname.startsWith('/photos/')) {
+            res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+            res.end(JSON.stringify({ error: 'path not allowed' }));
+            return;
+        }
+        await proxyJson(res, target.toString(), { Authorization: auth });
+        return;
+    }
+
     const file = normalize(join(root, path === '/' ? 'index.html' : path));
     if (!file.startsWith(root)) {
         res.writeHead(403).end();

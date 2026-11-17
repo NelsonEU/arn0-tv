@@ -37,11 +37,6 @@ native/**/bin/
 native/**/obj/
 native/build/
 
-# Easter-egg assets: personal photos and a music track. Kept out of git deliberately —
-# they ship only in local builds, and runner-game.js degrades to a notice without them.
-src/img/easter-egg/
-src/audio/
-
 # never publish a device baseline or a conversation transcript
 *-baseline.json
 original-*.json

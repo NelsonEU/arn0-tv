@@ -51,13 +51,17 @@ window.LAUNCHER_CONFIG = {
     },
 
     /*
-     * Live backgrounds from Bing's daily archive (Settings → Background → Live).
-     * Only URLs/titles are cached locally — never image files. Each calendar day today's
-     * photo is prepended and the oldest dropped so the pool stays at `max`.
+     * Live backgrounds (Settings → Background → Live). Providers: Bing (no key), NASA APOD
+     * (apod.nasa.gov pages, no key), Unsplash (Access Key in Settings, or unsplashAccessKey
+     * here as a first-run seed). Only URLs/titles are cached locally — never image files.
+     * Each calendar day a new photo is prepended and the oldest dropped so the pool stays at `max`.
      */
     liveWallpaper: {
         market: 'en-GB',        // Bing regional edition (en-GB, de-DE, fr-FR, it-IT, …)
-        max: 15
+        max: 15,
+        unsplashAccessKey: null, // optional seed; prefer Settings → Background on the TV
+        immichLink: null,        // optional Immich shared album link; prefer Settings → Background
+        unsplashCollection: null // optional Unsplash collection id; null = popular photos, one per day
     },
 
     /*

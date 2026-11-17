@@ -100,9 +100,9 @@
         var p = Prefs.get().wallpaper;
         if (p.mode === 'off') return 'Off';
         if (p.mode === 'live') {
-            var n = window.LiveWallpaper ? LiveWallpaper.max() : 7;
+            var src = window.LiveWallpaper ? LiveWallpaper.providerLabel() : 'Bing';
             var cur = Wallpaper.find(p.liveKey);
-            return cur ? 'Live · ' + cur.title : 'Live · up to ' + n + ' photos';
+            return 'Live · ' + src;
         }
         if (p.mode === 'rotate') return 'Rotate · ' + Wallpaper.interval(p.interval).label.toLowerCase();
         var w = Wallpaper.find(p.photo);
@@ -166,16 +166,58 @@
         });
         $('bg-interval-block').classList.toggle('hidden', !cycle);
 
-        var liveBlock = $('bg-live-block');
-        if (liveBlock) {
-            liveBlock.classList.toggle('hidden', !live);
+        var prov = p.liveProvider || 'bing';
+        var liveProvBlock = $('bg-live-provider-block');
+        if (liveProvBlock) {
+            liveProvBlock.classList.toggle('hidden', !live);
+            var providers = $('bg-live-provider');
+            providers.innerHTML = '';
+            (window.LiveWallpaper ? LiveWallpaper.PROVIDERS : [{ key: 'bing', label: 'Bing' }])
+                .forEach(function (x) {
+                    providers.appendChild(chip(x.label, prov === x.key, { kind: 'provider', key: x.key }));
+                });
+        }
+
+        var unsplashBlock = $('bg-live-unsplash-block');
+        if (unsplashBlock) {
+            unsplashBlock.classList.toggle('hidden', !live || prov !== 'unsplash');
+            var keyChips = $('bg-live-unsplash-key');
+            keyChips.innerHTML = '';
+            keyChips.appendChild(chip(
+                window.LiveWallpaper ? LiveWallpaper.unsplashKeySummary() : 'Set Access Key',
+                window.LiveWallpaper && LiveWallpaper.unsplashConfigured(),
+                { kind: 'unsplashKey' }
+            ));
+            keyChips.appendChild(chip(
+                window.LiveWallpaper ? LiveWallpaper.unsplashCollectionSummary() : 'Popular photos',
+                !!(window.LiveWallpaper && LiveWallpaper.unsplashCollection()),
+                { kind: 'unsplashCollection' }
+            ));
+        }
+
+        var immichBlock = $('bg-live-immich-block');
+        if (immichBlock) {
+            immichBlock.classList.toggle('hidden', !live || prov !== 'immich');
+            var immichChips = $('bg-live-immich');
+            immichChips.innerHTML = '';
+            immichChips.appendChild(chip(
+                window.LiveWallpaper ? LiveWallpaper.immichSummary() : 'Set share link',
+                !!(window.LiveWallpaper && LiveWallpaper.immichConfigured()),
+                { kind: 'immichLink' }
+            ));
+        }
+
+        var liveStatus = $('bg-live-status-block');
+        if (liveStatus) {
+            liveStatus.classList.toggle('hidden', !live || !!(window.LiveWallpaper && LiveWallpaper.needsSetup()));
             var max = window.LiveWallpaper ? LiveWallpaper.max() : 7;
             var pool = live ? Wallpaper.list() : [];
             var cur = live ? Wallpaper.find(p.liveKey) : null;
-            $('bg-live-status').textContent = cur
-                ? cur.title + (cur.credit ? ' · ' + cur.credit : '')
-                : 'Fetching Bing daily…';
-            $('bg-live-cap').textContent = pool.length + ' of ' + max + ' photos · new one each day, oldest dropped';
+            var src = window.LiveWallpaper ? LiveWallpaper.providerLabel() : 'Bing';
+            var fetching = (window.LiveWallpaper && LiveWallpaper.status()) || 'Fetching ' + src + '…';
+            $('bg-live-status').textContent = cur ? '' : fetching;
+            $('bg-live-cap').textContent = pool.length + ' of ' + max + ' photos · ' + src +
+                ' · new one each day, oldest dropped';
         }
 
         var photos = $('bg-photos');
@@ -194,12 +236,61 @@
 
     function activateBackground(item) {
         var p = Prefs.get().wallpaper;
+        if (item.kind === 'immichLink') {
+            rename('', function (link) {
+                if (window.LiveWallpaper) {
+                    LiveWallpaper.setImmichLink(link);
+                    LiveWallpaper.clearCache();
+                }
+                p.liveKey = '';
+                Prefs.save();
+                Wallpaper.ensureLive();
+                renderBackground();
+                UI.refresh();
+            }, { title: 'Immich shared album link', maxLength: 200, allowEmpty: true });
+            return;
+        }
+        if (item.kind === 'unsplashKey') {
+            rename('', function (key) {
+                if (window.LiveWallpaper) {
+                    LiveWallpaper.setUnsplashKey(key);
+                    LiveWallpaper.clearCache();
+                }
+                p.liveKey = '';
+                Prefs.save();
+                Wallpaper.ensureLive();
+                renderBackground();
+                UI.refresh();
+            }, { title: 'Unsplash Access Key', maxLength: 64, password: true });
+            return;
+        }
+        if (item.kind === 'unsplashCollection') {
+            rename(window.LiveWallpaper ? LiveWallpaper.unsplashCollection() : '', function (id) {
+                if (window.LiveWallpaper) {
+                    LiveWallpaper.setUnsplashCollection(id);
+                    LiveWallpaper.clearCache();
+                }
+                p.liveKey = '';
+                Prefs.save();
+                Wallpaper.ensureLive();
+                renderBackground();
+                UI.refresh();
+            }, { title: 'Unsplash collection ID', maxLength: 64, allowEmpty: true });
+            return;
+        }
         if (item.kind === 'mode') {
             p.mode = item.key;
             if (item.key === 'rotate' || item.key === 'live') p.lastChange = Date.now();
         } else if (item.kind === 'interval') {
             p.interval = item.key;
             p.lastChange = Date.now();
+        } else if (item.kind === 'provider') {
+            if (p.liveProvider === item.key) return;
+            p.liveProvider = item.key;
+            p.liveKey = '';
+            p.lastChange = Date.now();
+            if (window.LiveWallpaper) LiveWallpaper.clearCache();
+            if (window.LiveWallpaper && LiveWallpaper.needsSetup()) UI.toast(LiveWallpaper.status());
         } else if (item.kind === 'photo') {
             p.photo = item.key;
         }
@@ -801,10 +892,12 @@
     // ---------- Rename dialog (uses Samsung's on-screen keyboard)
 
     var renameDone = null;
+    var renameAllowEmpty = false;
 
     function rename(current, done, opts) {
         opts = opts || {};
         renameDone = done;
+        renameAllowEmpty = !!opts.allowEmpty;
         var title = $('rename-title');
         if (title) title.textContent = opts.title || 'Name';
         var input = $('rename-input');
@@ -819,13 +912,15 @@
         var value = input.value.trim();
         var done = renameDone;
         renameDone = null;
+        var allowEmpty = renameAllowEmpty;
+        renameAllowEmpty = false;
         input.blur();
         input.type = 'text';
         input.maxLength = 28;
         var title = $('rename-title');
         if (title) title.textContent = 'Name';
         UI.back();
-        if (save && value && done) done(value);
+        if (save && (value || allowEmpty) && done) done(value);
     }
 
     // ---------- Advanced
@@ -873,6 +968,11 @@
         renderConsoles = registerList('consoles', consoleEntries,
             [['OK', 'Options'], ['Back', 'Settings']]);
 
+        if (window.LiveWallpaper) {
+            LiveWallpaper.onChange(function () {
+                if (UI.current() === 'bg') renderBackground();
+            });
+        }
         UI.register('bg', {
             el: $('bg-settings'),
             rows: function () { return chipRows($('bg-body')); },

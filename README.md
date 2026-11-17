@@ -24,9 +24,9 @@ care; [the setup guide](docs/setup-tv.md) covers the risks and recovery steps.
 
 Built on [NelsonEU/arn0-tv](https://github.com/NelsonEU/arn0-tv). Extra behaviour on top of upstream:
 
-- **Live backgrounds** — Bing daily archive as a capped wallpaper pool (Settings → Background →
-  Live). URLs/titles only; images stay remote. Market and pool size in `config.js` /
-  `config.local.js`.
+- **Live backgrounds** — Bing, NASA APOD (apod.nasa.gov), or Unsplash as a capped wallpaper
+  pool (Settings → Background → Live). URLs/titles only; images stay remote. Bing/NASA need
+  no key; Unsplash Access Key is set in Settings (or seeded via `config.local.js`).
 - **Home weather** — current conditions beside the clock (city · condition, temp with high/low),
   plus a strip of the next 7 days. Same Open-Meteo reading as the screen saver; place and unit in
   Settings → Weather.
@@ -135,10 +135,7 @@ node scripts/prepare-wallpapers.mjs <folder>   # regenerate wallpapers from your
 | Back | one level back (does nothing on Home) |
 
 Hidden shortcuts: Red = All apps, Green = next wallpaper, Yellow (in All apps) = show system apps,
-Blue = Lab. On Home, Left and Right alternating three times (◀ ▶ ◀ ▶ ◀ ▶) starts the hidden game;
-OK / Up jumps, Down ducks, Back returns Home. The code alternates rather than repeating a key
-because a held remote key auto-repeats, which would both break a run-based code and fire it by
-accident while sweeping along a row.
+Blue = Lab.
 
 ### Layout
 
@@ -181,7 +178,7 @@ docs/                 setup guide
 Saved on the TV in `localStorage`. They survive restarts and in-place updates, not an uninstall.
 
 - **Background** — Off (plain gradient), one photo, rotate (on each Home, 30 s, 5 min, 15 min,
-  1 hour, daily), or **Live** (Bing pool).
+  1 hour, daily), or **Live** (Bing / NASA APOD / Unsplash; Unsplash key in Settings).
 - **Apps on Home** — OK on an app opens Move / Remove; OK on the right-hand slot adds one.
 - **Consoles** — per console: rename (on-screen keyboard), HDMI port, logo, how it opens, hide,
   reorder, remove; plus add a console.
@@ -304,7 +301,7 @@ probe now measures against `Date.now()` and flags any sample faster than the pan
 | `application.info` | listing apps |
 | `tv.inputdevice` | colour keys (arrows, OK and Back need no registration) |
 | `tv.window` | HDMI source switching and display |
-| `internet` + `<access origin="*">` | Open-Meteo, Bing live wallpapers, Subsonic streams, development log |
+| `internet` + `<access origin="*">` | Open-Meteo, Bing/NASA/Unsplash live wallpapers, Subsonic streams, development log |
 
 ## Contribute
 

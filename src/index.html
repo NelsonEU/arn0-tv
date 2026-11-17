@@ -77,7 +77,7 @@
 
         <section id="bg-settings" class="view page hidden">
             <header class="page-head"><h1>Background</h1></header>
-            <div id="bg-body" class="settings-body">
+            <div id="bg-body" class="settings-body scroll-y">
                 <div class="setting-block">
                     <h2>Wallpaper</h2>
                     <div id="bg-mode" class="chips"></div>
@@ -86,8 +86,21 @@
                     <h2>Change every</h2>
                     <div id="bg-interval" class="chips"></div>
                 </div>
-                <div id="bg-live-block" class="setting-block hidden">
-                    <h2>Live (Bing daily)</h2>
+                <div id="bg-live-provider-block" class="setting-block hidden">
+                    <h2>Live source</h2>
+                    <div id="bg-live-provider" class="chips"></div>
+                </div>
+                <div id="bg-live-unsplash-block" class="setting-block hidden">
+                    <h2>Unsplash</h2>
+                    <div id="bg-live-unsplash-key" class="chips"></div>
+                    <p class="setting-note muted">Access Key from unsplash.com/developers. Collection ID from unsplash.com/collections/ID/… (empty = popular).</p>
+                </div>
+                <div id="bg-live-immich-block" class="setting-block hidden">
+                    <h2>Immich album</h2>
+                    <div id="bg-live-immich" class="chips"></div>
+                    <p class="setting-note muted">Paste the shared album link (https://host/share/KEY). Make the album a shared link in Immich first.</p>
+                </div>
+                <div id="bg-live-status-block" class="setting-block hidden">
                     <p id="bg-live-status" class="setting-note"></p>
                     <p id="bg-live-cap" class="setting-note muted"></p>
                 </div>
@@ -162,7 +175,8 @@
             <div id="ss-photo-b" class="ss-photo"></div>
             <div class="ss-scrim"></div>
             <div id="ss-caption" class="ss-caption">
-                <div id="ss-title" class="ss-title"></div>
+                <div id="ss-title" class="ss-title marquee"></div>
+                <div id="ss-sub" class="ss-sub"></div>
             </div>
             <div id="ss-music" class="ss-music hidden">
                 <div id="ss-music-title" class="ss-music-title marquee">Not playing</div>
@@ -182,10 +196,6 @@
                 </div>
             </div>
             <div id="ss-dark" class="ss-dark"></div>
-        </section>
-
-        <section id="runner-game" class="view hidden">
-            <canvas id="runner-canvas" width="1920" height="1080" aria-label="Fiancée runner game"></canvas>
         </section>
 
         <div id="rename" class="view overlay hidden">
@@ -232,7 +242,6 @@
     <script src="js/screensaver.js"></script>
     <script src="js/home.js"></script>
     <script src="js/settings.js"></script>
-    <script src="js/runner-game.js"></script>
     <script src="js/boot.js"></script>
 </body>
 </html>
