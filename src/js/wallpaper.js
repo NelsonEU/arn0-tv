@@ -54,8 +54,21 @@
         return list;
     }
 
-    // Home keeps a light wallpaper: mid-size cover, no blur filter. Full-quality contain+blur
-    // is screensaver-only — blur/original under the UI made Home feel stuck on this TV.
+    // Home is static (cover, no pan/blur), so use a sharp full-size URL. Tiny preview thumbs
+    // looked soft behind the tiles. Screensaver still owns contain+blur and motion.
+    function homeUrls(w) {
+        var urls = [];
+        function add(u) {
+            if (u && urls.indexOf(u) < 0) urls.push(u);
+        }
+        // Prefer fullsize / main file; keep preview/thumb as last resorts only.
+        add(w.fileFallback);
+        add(w.file);
+        (w.fileFallbacks || []).forEach(add);
+        add(w.thumb);
+        return urls.length ? urls : photoUrls(w);
+    }
+
     function display(w) {
         var t = ++token;
         var photo = bgPhoto();
@@ -74,16 +87,7 @@
             setScrim(false);
             return;
         }
-        // Prefer thumb/preview first so Immich originals are not decoded behind the tiles.
-        var urls = [];
-        function add(u) {
-            if (u && urls.indexOf(u) < 0) urls.push(u);
-        }
-        add(w.thumb);
-        add(w.fileFallback);
-        add(w.file);
-        (w.fileFallbacks || []).forEach(add);
-        if (!urls.length) urls = photoUrls(w);
+        var urls = homeUrls(w);
 
         var i = 0;
         var probe = new Image();
@@ -223,8 +227,8 @@
                 }
                 // Skip no-op applies (metadata polish used to reload the same Home wallpaper).
                 var cur = find(p.liveKey);
-                var nextUrl = cur && (cur.thumb || cur.file);
-                if (nextUrl && nextUrl === lastHomeUrl) return;
+                var prefer = cur && homeUrls(cur)[0];
+                if (prefer && prefer === lastHomeUrl) return;
                 apply();
             });
         }
