@@ -22,13 +22,17 @@ care; [the setup guide](docs/setup-tv.md) covers the risks and recovery steps.
 
 ## This fork
 
-Built on [NelsonEU/arn0-tv](https://github.com/NelsonEU/arn0-tv) for one living-room TV. Still a
-starting point, not a product — expect to fork and adapt.
+Fork of [NelsonEU/arn0-tv](https://github.com/NelsonEU/arn0-tv) by
+[NelsonEU](https://github.com/NelsonEU) — thank you for the original quieter Tizen home screen.
+Still a starting point, not a product: built for one living-room TV; expect to fork and adapt.
 
-On that TV this launcher is installed and kept as the **Home screen** with
-[Vetro](https://github.com/andrearicci93/vetro) (sideload / remapping helper). That is optional:
-the app also runs from the app list. Remapping Home depends on Vetro and undocumented TV
-preferences — own-TV only, follow Vetro’s docs and [the setup guide](docs/setup-tv.md).
+**How this copy is installed:** the `.wgt` is sideloaded with
+[Apps2Samsung](https://github.com/Apps2Samsung/Apps2Samsung) (thanks
+[PatrickSt1991](https://github.com/PatrickSt1991) / the Apps2Samsung project), then kept as the
+TV **Home screen** with [Vetro](https://github.com/andrearicci93/vetro) (thanks
+[andrearicci93](https://github.com/andrearicci93)). Remapping Home is optional — the app also runs
+from the app list — and depends on Vetro plus undocumented TV preferences. Own-TV only; follow
+Vetro’s docs, Apps2Samsung’s docs, and [the setup guide](docs/setup-tv.md).
 
 Extra behaviour on top of upstream:
 
@@ -338,15 +342,22 @@ TV where `db/menu/smart_hub/ontvsetting/auto_start` starts at `0`.
 
 ## Licence and credits
 
-MIT for the original code and documentation — see [LICENSE](LICENSE). Bundled fonts (OFL), Unsplash
-photos and brand marks keep their own terms. Live photos may also come from Bing, NASA APOD,
-Wikimedia Commons, or your own Immich album — each keeps its own terms. Weather data by
-[Open-Meteo](https://open-meteo.com/), used under its non-commercial licence. Music talks to
-Navidrome / OpenSubsonic / Subsonic servers you configure. Brand names and logos belong to their
-owners.
+MIT for the original code and documentation — see [LICENSE](LICENSE). Original launcher by
+[NelsonEU](https://github.com/NelsonEU) ([NelsonEU/arn0-tv](https://github.com/NelsonEU/arn0-tv)) —
+thank you. Sideload tooling:
+[Apps2Samsung](https://github.com/Apps2Samsung/Apps2Samsung) by
+[PatrickSt1991](https://github.com/PatrickSt1991); Home remapping:
+[Vetro](https://github.com/andrearicci93/vetro) by
+[andrearicci93](https://github.com/andrearicci93) — thank you both.
 
-This project is independent and is not affiliated with Samsung, Immich, Navidrome, or any
-streaming service.
+Bundled fonts (OFL), Unsplash photos and brand marks keep their own terms. Live photos may also
+come from Bing, NASA APOD, Wikimedia Commons, or your own Immich album — each keeps its own terms.
+Weather data by [Open-Meteo](https://open-meteo.com/), used under its non-commercial licence. Music
+talks to Navidrome / OpenSubsonic / Subsonic servers you configure. Brand names and logos belong to
+their owners.
+
+This project is independent and is not affiliated with Samsung, Immich, Navidrome, Apps2Samsung,
+Vetro, or any streaming service.
 
 The Home-button approach follows [CleanFrame](https://github.com/nthnclrk/CleanFrame), which
 documented the method on a 2024 Frame. The guarded helpers here are an adaptation tested on the
