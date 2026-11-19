@@ -30,7 +30,7 @@ Prerequisites: Node.js 20+, and the TV in Developer Mode on the same network.
 1. Build the package:
 
    ```sh
-   npm run build          # -> dist/arn0-launcher.wgt
+   npm run build          # -> dist/Arn0Plus.wgt
    ```
 
 2. Install it. Either Apps2Samsung's **Custom WGT File** option, or Tizen Studio's CLI. Use the

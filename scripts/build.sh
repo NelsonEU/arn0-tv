@@ -1,5 +1,5 @@
 #!/bin/sh
-# Packages src/ into dist/arn0-launcher.wgt (unsigned; Apps2Samsung signs it on install).
+# Packages src/ into dist/Arn0Plus.wgt (unsigned; Apps2Samsung signs it on install).
 set -eu
 cd "$(dirname "$0")/.."
 
@@ -10,8 +10,10 @@ cd "$(dirname "$0")/.."
 node scripts/build-marks.mjs
 
 mkdir -p dist
-rm -f dist/arn0-launcher.wgt
-(cd src && zip -q -r -X ../dist/arn0-launcher.wgt . -x '*.DS_Store' -x '.*' -x 'img/marks/*')
+rm -f dist/Arn0Plus.wgt dist/arn0-launcher.wgt
+(cd src && zip -q -r -X ../dist/Arn0Plus.wgt . -x '*.DS_Store' -x '.*' -x 'img/marks/*')
+# Keep the old name as a copy for local scripts that still look for it.
+cp -f dist/Arn0Plus.wgt dist/arn0-launcher.wgt
 
-echo "Built dist/arn0-launcher.wgt"
-unzip -l dist/arn0-launcher.wgt
+echo "Built dist/Arn0Plus.wgt"
+unzip -l dist/Arn0Plus.wgt

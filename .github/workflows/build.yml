@@ -30,15 +30,15 @@ jobs:
           ver=$(python3 -c "import re,sys; t=open('src/config.xml').read(); m=re.search(r'<widget\\b[^>]*\\bversion=\"([^\"]+)\"', t, re.S); print(m.group(1) if m else sys.exit('no widget version'))")
           echo "version=$ver" >> "$GITHUB_OUTPUT"
           echo "Package version $ver"
-          cp dist/arn0-launcher.wgt "dist/arn0-launcher-${ver}.wgt"
-          sha256sum "dist/arn0-launcher-${ver}.wgt" | tee "dist/arn0-launcher-${ver}.wgt.sha256"
+          cp dist/Arn0Plus.wgt "dist/Arn0Plus-${ver}.wgt"
+          sha256sum "dist/Arn0Plus-${ver}.wgt" | tee "dist/Arn0Plus-${ver}.wgt.sha256"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: arn0-launcher-wgt
+          name: arn0-plus-wgt
           path: |
-            dist/arn0-launcher-*.wgt
-            dist/arn0-launcher-*.wgt.sha256
+            dist/Arn0Plus*.wgt
+            dist/Arn0Plus*.wgt.sha256
           if-no-files-found: error
 
   publish:
@@ -50,7 +50,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: arn0-launcher-wgt
+          name: arn0-plus-wgt
           path: dist
 
       - name: Publish latest build (main)
@@ -69,8 +69,8 @@ jobs:
             Install with [Apps2Samsung](https://github.com/Apps2Samsung/Apps2Samsung) → Custom WGT
             (signs on install). App id remains `Arn0Lnchr0.Launcher`.
           files: |
-            dist/arn0-launcher-*.wgt
-            dist/arn0-launcher-*.wgt.sha256
+            dist/Arn0Plus-*.wgt
+            dist/Arn0Plus-*.wgt.sha256
           fail_on_unmatched_files: true
 
       - name: Publish versioned release (tag)
@@ -81,6 +81,6 @@ jobs:
           body: |
             Unsigned `.wgt` — install with [Apps2Samsung](https://github.com/Apps2Samsung/Apps2Samsung) → Custom WGT.
           files: |
-            dist/arn0-launcher-*.wgt
-            dist/arn0-launcher-*.wgt.sha256
+            dist/Arn0Plus-*.wgt
+            dist/Arn0Plus-*.wgt.sha256
           fail_on_unmatched_files: true
