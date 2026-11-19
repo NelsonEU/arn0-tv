@@ -58,15 +58,16 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
-          name: Latest build
+          name: Arn0 Launcher (fork) — latest
           prerelease: true
           make_latest: false
           target_commitish: ${{ github.sha }}
           body: |
-            Rolling unsigned `.wgt` from `main` (`${{ github.sha }}`).
+            **Arn0 Launcher (fork)** — Immich / Mix / Navidrome extras on NelsonEU’s Arn0.
 
-            Install with [Apps2Samsung](https://github.com/Apps2Samsung/Apps2Samsung) → Custom WGT.
-            Apps2Samsung signs it on install.
+            Rolling unsigned `.wgt` from `main` (`${{ github.sha }}`).
+            Install with [Apps2Samsung](https://github.com/Apps2Samsung/Apps2Samsung) → Custom WGT
+            (signs on install). App id remains `Arn0Lnchr0.Launcher`.
           files: |
             dist/arn0-launcher-*.wgt
             dist/arn0-launcher-*.wgt.sha256

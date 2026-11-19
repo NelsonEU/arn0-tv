@@ -7,7 +7,7 @@
     <tizen:application id="Arn0Lnchr0.Launcher" package="Arn0Lnchr0" required_version="3.0"/>
     <content src="index.html"/>
     <icon src="icon.png"/>
-    <name>Arn0 Launcher</name>
+    <name>Arn0 Launcher (fork)</name>
 
     <feature name="http://tizen.org/feature/screen.size.normal.1080.1920"/>
 
