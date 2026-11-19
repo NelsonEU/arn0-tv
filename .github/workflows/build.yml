@@ -1,0 +1,84 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build .wgt
+        run: npm run build
+
+      - name: Name package
+        id: pkg
+        run: |
+          ver=$(sed -n 's/.*version="\([^"]*\)".*/\1/p' src/config.xml | head -1)
+          echo "version=$ver" >> "$GITHUB_OUTPUT"
+          cp dist/arn0-launcher.wgt "dist/arn0-launcher-${ver}.wgt"
+          sha256sum "dist/arn0-launcher-${ver}.wgt" | tee "dist/arn0-launcher-${ver}.wgt.sha256"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: arn0-launcher-wgt
+          path: |
+            dist/arn0-launcher-*.wgt
+            dist/arn0-launcher-*.wgt.sha256
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: arn0-launcher-wgt
+          path: dist
+
+      - name: Publish latest build (main)
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Latest build
+          prerelease: true
+          make_latest: false
+          target_commitish: ${{ github.sha }}
+          body: |
+            Rolling unsigned `.wgt` from `main` (`${{ github.sha }}`).
+
+            Install with [Apps2Samsung](https://github.com/Apps2Samsung/Apps2Samsung) → Custom WGT.
+            Apps2Samsung signs it on install.
+          files: |
+            dist/arn0-launcher-*.wgt
+            dist/arn0-launcher-*.wgt.sha256
+          fail_on_unmatched_files: true
+
+      - name: Publish versioned release (tag)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          body: |
+            Unsigned `.wgt` — install with [Apps2Samsung](https://github.com/Apps2Samsung/Apps2Samsung) → Custom WGT.
+          files: |
+            dist/arn0-launcher-*.wgt
+            dist/arn0-launcher-*.wgt.sha256
+          fail_on_unmatched_files: true
