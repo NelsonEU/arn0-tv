@@ -6,7 +6,11 @@ A quieter home screen for a Samsung Tizen TV: clock, your apps, your consoles â€
 Fork of [NelsonEU/arn0-tv](https://github.com/NelsonEU/arn0-tv) by [NelsonEU](https://github.com/NelsonEU) â€” thank you.
 App id stays `Arn0Lnchr0.Launcher` so Home / Vetro setup matches upstream.
 
-![Home screen](docs/preview.png)
+![Home](docs/preview.png)
+
+| Settings | Live backgrounds | Screen saver |
+| --- | --- | --- |
+| ![Settings](docs/preview-settings.png) | ![Live backgrounds](docs/preview-live.png) | ![Screen saver](docs/preview-screensaver.png) |
 
 **Use at your own risk.** Making this the TV Home button changes undocumented settings. See
 [docs/setup-tv.md](docs/setup-tv.md).
