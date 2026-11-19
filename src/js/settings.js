@@ -178,9 +178,10 @@
                 });
         }
 
+        var showUnsplash = live && (prov === 'unsplash' || prov === 'mix');
         var unsplashBlock = $('bg-live-unsplash-block');
         if (unsplashBlock) {
-            unsplashBlock.classList.toggle('hidden', !live || prov !== 'unsplash');
+            unsplashBlock.classList.toggle('hidden', !showUnsplash);
             var keyChips = $('bg-live-unsplash-key');
             keyChips.innerHTML = '';
             keyChips.appendChild(chip(
@@ -195,9 +196,10 @@
             ));
         }
 
+        var showImmich = live && (prov === 'immich' || prov === 'mix');
         var immichBlock = $('bg-live-immich-block');
         if (immichBlock) {
-            immichBlock.classList.toggle('hidden', !live || prov !== 'immich');
+            immichBlock.classList.toggle('hidden', !showImmich);
             var immichChips = $('bg-live-immich');
             immichChips.innerHTML = '';
             immichChips.appendChild(chip(
@@ -207,17 +209,32 @@
             ));
         }
 
+        var shuffleBlock = $('bg-shuffle-block');
+        if (shuffleBlock) {
+            shuffleBlock.classList.toggle('hidden', !cycle);
+            var shuffleChips = $('bg-shuffle');
+            shuffleChips.innerHTML = '';
+            [[false, 'Off'], [true, 'On']].forEach(function (o) {
+                shuffleChips.appendChild(chip(o[1], !!p.random === o[0], { kind: 'random', value: o[0] }));
+            });
+        }
+
         var liveStatus = $('bg-live-status-block');
         if (liveStatus) {
             liveStatus.classList.toggle('hidden', !live || !!(window.LiveWallpaper && LiveWallpaper.needsSetup()));
-            var max = window.LiveWallpaper ? LiveWallpaper.max() : 7;
             var pool = live ? Wallpaper.list() : [];
             var cur = live ? Wallpaper.find(p.liveKey) : null;
             var src = window.LiveWallpaper ? LiveWallpaper.providerLabel() : 'Bing';
             var fetching = (window.LiveWallpaper && LiveWallpaper.status()) || 'Fetching ' + src + '…';
             $('bg-live-status').textContent = cur ? '' : fetching;
-            $('bg-live-cap').textContent = pool.length + ' of ' + max + ' photos · ' + src +
-                ' · new one each day, oldest dropped';
+            var planned = window.LiveWallpaper && LiveWallpaper.planCount ? LiveWallpaper.planCount() : 0;
+            var cap = (planned ? planned + ' planned · ' : '') +
+                (pool.length ? pool.length + ' recent · ' : '') + src;
+            if (prov === 'mix' && window.LiveWallpaper && LiveWallpaper.mixSources) {
+                var parts = LiveWallpaper.mixSources();
+                if (parts.length) cap += ' · ' + parts.join('+') + (p.random ? ' (shuffled)' : '');
+            }
+            $('bg-live-cap').textContent = cap;
         }
 
         var photos = $('bg-photos');
@@ -284,6 +301,12 @@
         } else if (item.kind === 'interval') {
             p.interval = item.key;
             p.lastChange = Date.now();
+        } else if (item.kind === 'random') {
+            p.random = !!item.value;
+            // Rebuild upcoming Mix slots so Shuffle changes provider order; keep the current photo.
+            if (p.mode === 'live' && window.LiveWallpaper && LiveWallpaper.rebuildPlan) {
+                LiveWallpaper.rebuildPlan();
+            }
         } else if (item.kind === 'provider') {
             if (p.liveProvider === item.key) return;
             p.liveProvider = item.key;

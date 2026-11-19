@@ -63,25 +63,67 @@ createServer(async (req, res) => {
     }
 
     if (path === '/api/live/apod') {
-        // Raw APOD page; the browser parses it the same way it does on the TV.
+        // Preview: resolve one APOD day via science.nasa.gov WP (old apYYMMDD.html is a shell).
         const date = u.searchParams.get('date') || '';
         if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
             res.writeHead(400).end();
             return;
         }
-        const d = date.split('-');
+        const months = [
+            'January', 'February', 'March', 'April', 'May', 'June',
+            'July', 'August', 'September', 'October', 'November', 'December'
+        ];
+        const parts = date.split('-');
+        const query = `APOD: ${parts[0]} ${months[Number(parts[1]) - 1]} ${Number(parts[2])}`;
         try {
-            const upstream = await fetch(`https://apod.nasa.gov/apod/ap${d[0].slice(2)}${d[1]}${d[2]}.html`, {
-                signal: AbortSignal.timeout(15000)
+            const searchUrl = 'https://science.nasa.gov/wp-json/wp/v2/image-article?search=' +
+                encodeURIComponent(query) + '&per_page=5';
+            const search = await fetch(searchUrl, { signal: AbortSignal.timeout(15000) });
+            const list = await search.json();
+            const want = query.toLowerCase();
+            const post = (Array.isArray(list) ? list : []).find((p) => {
+                const t = String(p?.title?.rendered || '')
+                    .replace(/&#8211;/g, '–')
+                    .replace(/&amp;/g, '&')
+                    .toLowerCase();
+                return t.startsWith(want);
             });
-            res.writeHead(upstream.status, {
-                'Content-Type': 'text/html; charset=utf-8',
+            if (!post?.featured_media) {
+                res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+                res.end(JSON.stringify({ error: 'not found' }));
+                return;
+            }
+            const mediaRes = await fetch(
+                'https://science.nasa.gov/wp-json/wp/v2/media/' + post.featured_media,
+                { signal: AbortSignal.timeout(15000) }
+            );
+            const media = await mediaRes.json();
+            const sizes = media?.media_details?.sizes || {};
+            const pick = sizes['2048x2048'] || sizes.large || sizes['1536x1536'] || sizes.medium_large;
+            const file = pick?.source_url || media?.source_url || '';
+            const thumb = sizes.medium?.source_url || sizes.thumbnail?.source_url || file;
+            let title = String(post.title?.rendered || '')
+                .replace(/&#8211;/g, '–')
+                .replace(/&amp;/g, '&')
+                .replace(/^APOD:\s*/i, '')
+                .replace(/^\d{4} [A-Za-z]+ \d{1,2}\s*[–\-]\s*/, '')
+                .replace(/\s*-\s*NASA Science\s*$/i, '')
+                .trim() || 'NASA APOD';
+            res.writeHead(200, {
+                'Content-Type': 'application/json; charset=utf-8',
                 'Cache-Control': 'no-store'
             });
-            res.end(Buffer.from(await upstream.arrayBuffer()));
+            res.end(JSON.stringify({
+                key: date,
+                title,
+                file,
+                thumb,
+                credit: 'NASA APOD',
+                remote: true
+            }));
         } catch (e) {
-            res.writeHead(502, { 'Content-Type': 'text/plain; charset=utf-8' });
-            res.end(String(e && e.message ? e.message : e));
+            res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
+            res.end(JSON.stringify({ error: String(e && e.message ? e.message : e) }));
         }
         return;
     }
@@ -89,8 +131,10 @@ createServer(async (req, res) => {
     if (path === '/api/live/immich') {
         // Preview only: the Immich server is not CORS-enabled for the browser preview origin.
         const target = new URL(u.searchParams.get('url') || '');
-        const allowed = ['/api/shared-links/me', '/api/search/metadata'];
-        if (!/^https?:$/.test(target.protocol) || !allowed.some((p) => target.pathname.endsWith(p))) {
+        const pathOk = target.pathname.endsWith('/api/shared-links/me') ||
+            target.pathname.endsWith('/api/search/metadata') ||
+            /\/api\/assets\/[^/]+$/.test(target.pathname);
+        if (!/^https?:$/.test(target.protocol) || !pathOk) {
             res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
             res.end(JSON.stringify({ error: 'url not allowed' }));
             return;

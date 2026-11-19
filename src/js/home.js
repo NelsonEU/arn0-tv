@@ -488,8 +488,9 @@
     }
 
     function nextWallpaper() {
-        var w = Wallpaper.next();
-        if (w) UI.toast(w.title + (w.credit ? ' · ' + w.credit : ''));
+        Wallpaper.next(function (w) {
+            if (w) UI.toast(w.title + (w.credit ? ' · ' + w.credit : ''));
+        });
     }
 
     // Colour keys are hidden shortcuts; everything is also reachable from Settings.

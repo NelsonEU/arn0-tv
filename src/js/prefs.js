@@ -19,9 +19,10 @@
             wallpaper: {
                 mode: theme.wallpaper ? 'photo' : 'off',   // 'off' | 'photo' | 'rotate' | 'live'
                 photo: theme.wallpaper || 'forest',
-                liveProvider: 'bing',   // 'bing' | 'nasa' | 'wikimedia' | 'unsplash'
+                liveProvider: 'bing',   // 'bing' | 'nasa' | 'wikimedia' | 'unsplash' | 'immich' | 'mix'
                 liveKey: '',            // current entry in the live pool (date key)
                 interval: '15m',        // see Wallpaper.INTERVALS (rotate + live cycle)
+                random: false,          // Shuffle: Mix = random provider; live/rotate = random photo
                 lastChange: 0
             },
             screensaver: {

@@ -83,6 +83,47 @@ html, body {
     width: 1920px;
     height: 1080px;
     background: var(--bg) url("../img/bg.jpg") center / cover no-repeat;
+    overflow: hidden;
+}
+
+/* Live Immich (and others) use an img so EXIF orientation applies; CSS backgrounds ignore it. */
+.bg-photo {
+    display: none;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    image-orientation: from-image;
+}
+
+.bg-photo.on {
+    display: block;
+}
+
+/* Live on Home: contain over a blurred twin so letterbox is not flat black. */
+.bg-photo-blur {
+    display: none;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    image-orientation: from-image;
+    filter: blur(24px);
+    transform: scale(1.1);
+}
+
+.bg-photo-blur.on {
+    display: block;
+}
+
+.bg-photo.contain {
+    object-fit: contain;
 }
 
 /*
@@ -1153,8 +1194,8 @@ html.preview, html.preview body {
 /*
  * Laid out 320x180 larger than the screen and offset by half of that, so the photo can drift
  * 160px horizontally and 90px vertically without ever showing an edge. Panning rather than
- * zooming is deliberate: see the comment in js/screensaver.js. The transform transition is set
- * from JavaScript because its duration follows how long each photo is up.
+ * zooming is deliberate: see the comment in js/screensaver.js. An <img> is used so Immich
+ * originals respect EXIF orientation (CSS backgrounds do not).
  */
 .ss-photo {
     position: absolute;
@@ -1163,11 +1204,66 @@ html.preview, html.preview body {
     width: 2240px;
     height: 1260px;
     opacity: 0;
-    background: center / cover no-repeat;
+    overflow: hidden;
+    background: #05060a;
     transform: translate(0, 0);
     transition: opacity 2000ms linear;
     will-change: transform, opacity;
 }
+
+/* Contain (live sources): viewport-sized so the blur always covers the screen; pan only the sharp img. */
+.ss-photo.contain {
+    top: 0;
+    left: 0;
+    width: 1920px;
+    height: 1080px;
+    transform: none;
+    will-change: opacity;
+}
+
+.ss-photo-blur {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    image-orientation: from-image;
+    filter: blur(24px);
+    transform: scale(1.1);
+    opacity: 0;
+    pointer-events: none;
+}
+
+.ss-photo-img {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    image-orientation: from-image;
+    transform: translate(0, 0);
+    will-change: transform;
+}
+
+/* Live: full frame (no cover zoom); blurred cover fills the letterbox instead of black. */
+.ss-photo.contain .ss-photo-blur {
+    opacity: 1;
+}
+
+.ss-photo.contain .ss-photo-img {
+    object-fit: contain;
+}
+
+/* Portrait focus-zoom aims slightly above centre (faces / subjects). */
+.ss-photo.portrait .ss-photo-img {
+    transform-origin: center 40%;
+}
+
 
 .ss-scrim {
     position: absolute;

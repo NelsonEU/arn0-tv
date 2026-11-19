@@ -8,7 +8,10 @@
 </head>
 <body>
     <div id="stage">
-        <div id="bg"></div>
+        <div id="bg">
+            <img id="bg-photo-blur" class="bg-photo-blur" alt="">
+            <img id="bg-photo" class="bg-photo" alt="">
+        </div>
         <!-- Readability scrim for remote (unbaked) live wallpapers only; bundled JPGs already include it. -->
         <div id="bg-scrim" class="hidden"></div>
 
@@ -100,6 +103,11 @@
                     <div id="bg-live-immich" class="chips"></div>
                     <p class="setting-note muted">Paste the shared album link (https://host/share/KEY). Make the album a shared link in Immich first.</p>
                 </div>
+                <div id="bg-shuffle-block" class="setting-block hidden">
+                    <h2>Shuffle</h2>
+                    <div id="bg-shuffle" class="chips"></div>
+                    <p class="setting-note muted">Mix: random provider each slot. Rotate: random photo.</p>
+                </div>
                 <div id="bg-live-status-block" class="setting-block hidden">
                     <p id="bg-live-status" class="setting-note"></p>
                     <p id="bg-live-cap" class="setting-note muted"></p>
@@ -169,10 +177,16 @@
             <div id="music-body" class="settings-body compact"></div>
         </section>
 
-        <!-- Two photo layers so one can decode and zoom from scratch while the other fades out. -->
+        <!-- Two photo layers so one can decode while the other fades out. -->
         <section id="screensaver" class="view hidden">
-            <div id="ss-photo-a" class="ss-photo"></div>
-            <div id="ss-photo-b" class="ss-photo"></div>
+            <div id="ss-photo-a" class="ss-photo">
+                <img class="ss-photo-blur" alt="">
+                <img class="ss-photo-img" alt="">
+            </div>
+            <div id="ss-photo-b" class="ss-photo">
+                <img class="ss-photo-blur" alt="">
+                <img class="ss-photo-img" alt="">
+            </div>
             <div class="ss-scrim"></div>
             <div id="ss-caption" class="ss-caption">
                 <div id="ss-title" class="ss-title marquee"></div>

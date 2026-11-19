@@ -18,13 +18,13 @@ window.LAUNCHER_LOCAL = {
     //     maxBitRate: 320
     // },
 
-    // Live wallpapers (metadata cache only; max = rolling daily pool size).
-    // Provider in Settings → Background (bing | nasa | unsplash). Unsplash needs a key:
-    // liveWallpaper: { market: 'en-GB', max: 15, unsplashAccessKey: 'YOUR_ACCESS_KEY' },
-    // Immich album as a live source (share link from Immich → Sharing → Shared links):
-    // liveWallpaper: { market: 'en-GB', max: 15, immichLink: 'https://host/share/KEY' },
-    // Optional: pick Unsplash photos from a collection (one per day, in collection order):
-    // liveWallpaper: { market: 'en-GB', max: 15, unsplashCollection: 'COLLECTION_ID' },
+    // Live wallpapers (metadata cache only; max = rolling daily pool size, default 50).
+    // Provider in Settings → Background (bing | nasa | wikimedia | unsplash | immich | mix).
+    // liveWallpaper: { market: 'en-GB', max: 50, unsplashAccessKey: 'YOUR_ACCESS_KEY' },
+    // Immich album (share link from Immich → Sharing → Shared links):
+    // liveWallpaper: { market: 'en-GB', max: 50, immichLink: 'https://host/share/KEY' },
+    // Unsplash collection (optional; empty = popular photos):
+    // liveWallpaper: { market: 'en-GB', max: 50, unsplashCollection: 'COLLECTION_ID' },
 
     // Receives Lab logs; see scripts/devlog-server.mjs.
     // devLogUrl: null,

@@ -1,6 +1,6 @@
 /*
  * Screen saver: photos with a slow zoom, a clock and a caption, after a stretch with no input
- * on Home. Any key closes it, and that press does nothing else.
+ * on Home. Right skips to the next photo; any other key closes it (and that press does nothing else).
  *
  * Adapted from a design mockup rather than ported from it. The mockup's backdrop was nine
  * radial-gradients over a linear-gradient — the exact shape the Lab render probe measured at
@@ -43,14 +43,17 @@
     /*
      * The photo drifts rather than zooms. A zoom changes the layer's raster scale, and this
      * engine re-rasterises a scaled 1920x1080 layer in visible steps instead of compositing it
-     * smoothly — the first version of this did zoom, and on the TV it stepped badly. A translate
-     * leaves the raster alone and only changes the transform matrix, which is the one thing the
-     * compositor is certain to do per frame. The layer is laid out larger than the screen so
-     * there is something to drift into, and panning also beats zooming for burn-in: a zoom from
-     * the centre leaves the middle of the picture almost stationary.
+     * smoothly. A translate leaves the raster alone. The layer is laid out larger than the
+     * screen (cover) so the panel stays filled while it pans.
      */
     var PAN_X = 160;                // overhang each side, matching .ss-photo in the stylesheet
     var PAN_Y = 90;
+    var PAN_X_CONTAIN = 28;         // live landscape contain: mild drift (blur stays fixed)
+    var PAN_Y_CONTAIN = 16;
+    // Portrait contain: focus-zoom (screensaver only; Home stays light).
+    // Zoom may be cut mid-leg when the photo changes — factor > 1 keeps it slow.
+    var ZOOM_PORTRAIT = 1.50;
+    var ZOOM_LEG_FACTOR = 1.25;
     var HELD_LEG_MS = 90 * 1000;    // one leg of the drift when a single photo is held
     var CLOCK_MOVE_MS = 150 * 1000; // "every 2-3 minutes"
     var CLOCK_POSITIONS = 4;        // .ss-clock.pos-0 .. pos-3
@@ -76,6 +79,8 @@
     var lastClockText = '';
     var clockPos = 0;
     var dark = false;
+    var advancing = false;      // one in-flight live takeNext (timer or remote)
+    var shownKey = '';          // live polish may update caption after the photo is up
 
     function prefs() { return Prefs.get().screensaver; }
 
@@ -92,7 +97,12 @@
 
     function rotating() {
         var mode = Prefs.get().wallpaper.mode;
-        return (mode === 'rotate' || mode === 'live') && Wallpaper.list().length > 1;
+        if (mode === 'live') {
+            // Live keeps an upcoming plan; do not require history length > 1.
+            return !!(window.LiveWallpaper && LiveWallpaper.isOnDemand && LiveWallpaper.isOnDemand()) ||
+                Wallpaper.list().length > 1;
+        }
+        return mode === 'rotate' && Wallpaper.list().length > 1;
     }
 
     /*
@@ -124,16 +134,51 @@
         return rotating() ? photoEvery().ms : HELD_LEG_MS;
     }
 
+    function zoomLegMs() {
+        return Math.max(8 * 1000, Math.round(legMs() * ZOOM_LEG_FACTOR));
+    }
+
     function corner(sign) {
         return 'translate(' + (sign * PAN_X) + 'px, ' + (sign * PAN_Y) + 'px)';
+    }
+
+    function containCorner(sign) {
+        return 'translate(' + (sign * PAN_X_CONTAIN) + 'px, ' + (sign * PAN_Y_CONTAIN) + 'px)';
+    }
+
+    // sign > 0 = zoomed out; sign < 0 = focus-in.
+    function portraitScale(sign) {
+        return 'scale(' + (sign > 0 ? 1 : ZOOM_PORTRAIT) + ')';
+    }
+
+    function sharpEl(layer) {
+        return layer.querySelector('.ss-photo-img');
     }
 
     /*
      * Place a layer at the start of its drift with no animation. The suppression has to be
      * inline rather than a class, because startPan sets `transition` inline and an inline
      * declaration beats a class rule.
+     * Contain (live): layer + blur stay fixed. Landscape nudges; portrait focus-zooms.
      */
     function resetPan(layer, sign) {
+        var sharp = sharpEl(layer);
+        if (layer.classList.contains('contain')) {
+            layer.style.transition = 'none';
+            layer.style.transform = 'none';
+            if (sharp) {
+                sharp.style.transition = 'none';
+                sharp.style.transform = layer.classList.contains('portrait')
+                    ? portraitScale(sign)
+                    : containCorner(sign);
+                void sharp.offsetWidth;
+            }
+            return;
+        }
+        if (sharp) {
+            sharp.style.transition = 'none';
+            sharp.style.transform = 'translate(0, 0)';
+        }
         layer.style.transition = 'none';
         layer.style.transform = corner(sign);
         // Reading a layout property flushes that, so the transition startPan restores runs from
@@ -143,14 +188,27 @@
 
     /*
      * The drift is one CSS transition per leg: set once, run by the compositor, no JavaScript
-     * per frame. Successive photos drift in opposite directions so the picture is not always
-     * sliding the same way.
+     * per frame. Duration follows Screen saver → photo every (or the held-photo leg).
      */
     function startPan() {
         panSign = -panSign;
         nextPanAt = Date.now() + legMs();
         var layer = layers[front];
-        layer.style.transition = 'opacity ' + FADE_MS + 'ms linear, transform ' + legMs() + 'ms linear';
+        var sharp = sharpEl(layer);
+        var move = 'transform ' + legMs() + 'ms linear';
+        if (layer.classList.contains('contain')) {
+            layer.style.transition = 'opacity ' + FADE_MS + 'ms linear';
+            layer.style.transform = 'none';
+            if (sharp) {
+                var portrait = layer.classList.contains('portrait');
+                sharp.style.transition = portrait
+                    ? ('transform ' + zoomLegMs() + 'ms linear')
+                    : move;
+                sharp.style.transform = portrait ? portraitScale(panSign) : containCorner(panSign);
+            }
+            return;
+        }
+        layer.style.transition = 'opacity ' + FADE_MS + 'ms linear, ' + move;
         layer.style.transform = corner(panSign);
     }
 
@@ -159,6 +217,17 @@
      * cannot show as a flash of empty background. A token abandons a decode that finishes after
      * the next change, or after the screen saver has closed.
      */
+    function photoUrls(w) {
+        var list = [];
+        function add(u) {
+            if (u && list.indexOf(u) < 0) list.push(u);
+        }
+        add(w.file);
+        add(w.fileFallback);
+        (w.fileFallbacks || []).forEach(add);
+        return list;
+    }
+
     function showPhoto(w) {
         var token = ++photoToken;
         if (!w) {
@@ -169,12 +238,29 @@
         }
         applyTone(w.thumb || w.file, token);
         var swapped = false;
-        var swap = function () {
+        var urls = photoUrls(w);
+        var ui = 0;
+        var swap = function (url, probe) {
             if (swapped || token !== photoToken || !open) return;
             swapped = true;
             var back = layers[1 - front];
             var old = layers[front];
-            back.style.backgroundImage = 'url("' + w.file + '")';
+            var imgEl = back.querySelector('.ss-photo-img');
+            var blurEl = back.querySelector('.ss-photo-blur');
+            // Portrait = taller than wide (from decoded pixels). Only those get contain+blur+zoom;
+            // landscape fills the panel with cover + the usual pan.
+            var portrait = !!(probe && probe.naturalWidth && probe.naturalHeight > probe.naturalWidth);
+            var contain = portrait;
+            back.classList.toggle('contain', contain);
+            back.classList.toggle('portrait', portrait);
+            back.classList.toggle('landscape', !portrait);
+            if (imgEl) imgEl.src = url;
+            else back.style.backgroundImage = 'url("' + url + '")';
+            if (blurEl) {
+                // Blur the small thumb — full-size originals + filter:blur are costly on this TV.
+                if (contain) blurEl.src = w.thumb || url;
+                else blurEl.removeAttribute('src');
+            }
             // Placed at the corner startPan is about to drift away from, animation suppressed.
             resetPan(back, panSign);
             front = 1 - front;
@@ -185,10 +271,17 @@
             old.style.opacity = '0';
         };
         var img = new Image();
-        img.onload = swap;
-        img.onerror = function () { DevLog.log('Screen saver photo failed: ' + w.file); };
-        img.src = w.file;
-        if (img.complete && img.naturalWidth) swap();
+        img.onload = function () { swap(urls[ui], img); };
+        img.onerror = function () {
+            ui++;
+            if (ui < urls.length) {
+                img.src = urls[ui];
+                return;
+            }
+            DevLog.log('Screen saver photo failed: ' + w.file);
+        };
+        img.src = urls[0];
+        if (img.complete && img.naturalWidth) swap(urls[0], img);
     }
 
     // ---------- Text tone
@@ -272,11 +365,17 @@
     }
 
     function caption(w) {
-        captionText = w ? w.title : '';
+        // Title + date/credit from live metadata (title/sub/credit on each wallpaper entry).
+        captionText = w ? (w.title || w.credit || '') : '';
+        var sub = '';
+        if (w) {
+            if (w.sub && w.credit && w.credit !== w.title) sub = w.sub + ' · ' + w.credit;
+            else sub = w.sub || (w.credit && w.credit !== captionText ? w.credit : '') || '';
+        }
         if (window.Music) Music.fillMarquee($('ss-title'), captionText, true);
         else $('ss-title').textContent = captionText;
-        $('ss-sub').textContent = w && w.sub ? w.sub : '';
-        $('ss-caption').classList.toggle('hidden', !w);
+        $('ss-sub').textContent = sub;
+        $('ss-caption').classList.toggle('hidden', !w || (!captionText && !sub));
     }
 
     // Long lines scroll for a few loops and freeze; repeating the scroll now and then keeps
@@ -368,6 +467,7 @@
         renderMusic();
         if (window.Weather) Weather.refresh();
         var w = photoAt(photoIndex);
+        shownKey = (w && w.key) || '';
         caption(w);
         showPhoto(w);
         DevLog.log('Screen saver on');
@@ -377,6 +477,62 @@
         dark = true;
         $('ss-dark').style.opacity = '1';
         DevLog.log('Screen saver dark after ' + darkAfter().label);
+    }
+
+    function wakeFromDark() {
+        if (!dark) return;
+        dark = false;
+        $('ss-dark').style.opacity = '0';
+    }
+
+    function applyPhoto(w) {
+        if (!open || !w) return;
+        var list = Wallpaper.list();
+        var ni = list.findIndex(function (x) { return x.key === w.key; });
+        photoIndex = ni < 0 ? photoIndex : ni;
+        shownKey = w.key || '';
+        caption(w);
+        showPhoto(w);
+    }
+
+    // Immich (and similar) polish place/title after paint; refresh only the caption in place.
+    function refreshCaptionIfShown() {
+        if (!open || !shownKey) return;
+        var w = Wallpaper.find(shownKey);
+        if (w) caption(w);
+    }
+
+    // Timer and remote Right both land here so the interval resets after a manual skip.
+    function advancePhoto() {
+        if (!rotating() || advancing) return false;
+        nextPhotoAt = Date.now() + photoEvery().ms;
+        if (Prefs.get().wallpaper.mode === 'live' &&
+            window.LiveWallpaper && LiveWallpaper.isOnDemand && LiveWallpaper.isOnDemand()) {
+            advancing = true;
+            LiveWallpaper.takeNext().then(function (w) {
+                advancing = false;
+                if (!open) return;
+                // Plan miss / slow fill: fall back to recent history so the frame still changes.
+                if (!w) {
+                    var hist = Wallpaper.list();
+                    if (!hist.length) return;
+                    var cur = photoAt(photoIndex);
+                    w = hist.length > 1
+                        ? Wallpaper.pickNext(hist, cur && cur.key, !!Prefs.get().wallpaper.random)
+                        : hist[0];
+                    if (!w || (cur && w.key === cur.key && hist.length < 2)) return;
+                }
+                applyPhoto(w);
+            }, function () { advancing = false; });
+            return true;
+        }
+        var list = Wallpaper.list();
+        var cur = photoAt(photoIndex);
+        var next = Wallpaper.pickNext(list, cur && cur.key, !!Prefs.get().wallpaper.random);
+        var ni = next ? list.findIndex(function (x) { return x.key === next.key; }) : -1;
+        photoIndex = ni < 0 ? photoIndex + 1 : ni;
+        applyPhoto(next || photoAt(photoIndex));
+        return true;
     }
 
     function tick() {
@@ -392,11 +548,7 @@
             refreshScroll();
         }
         if (rotating() && now >= nextPhotoAt) {
-            photoIndex++;
-            nextPhotoAt = now + photoEvery().ms;
-            var w = photoAt(photoIndex);
-            caption(w);
-            showPhoto(w);
+            advancePhoto();
         } else if (nextPanAt && now >= nextPanAt) {
             // A held photo has reached the far corner; send it back the other way.
             startPan();
@@ -406,12 +558,19 @@
     function close() {
         if (!open) return;
         open = false;
+        advancing = false;
+        shownKey = '';
         lastInput = Date.now();
         photoToken++;
-        // Dropping the images releases two full-screen textures on a 2 GB device.
+        // Dropping the images releases full-screen textures on a 2 GB device.
         layers.forEach(function (l) {
             l.style.opacity = '0';
             l.style.backgroundImage = '';
+            l.classList.remove('contain', 'portrait', 'landscape');
+            var imgEl = l.querySelector('.ss-photo-img');
+            var blurEl = l.querySelector('.ss-photo-blur');
+            if (imgEl) imgEl.removeAttribute('src');
+            if (blurEl) blurEl.removeAttribute('src');
         });
         UI.show(returnTo, { back: true });
     }
@@ -452,11 +611,23 @@
                 if (open) renderMusic();
             });
         }
+        if (window.LiveWallpaper && LiveWallpaper.onChange) {
+            LiveWallpaper.onChange(refreshCaptionIfShown);
+        }
         UI.register('screensaver', {
             el: $('screensaver'),
             hints: [],
             rows: function () { return []; },
-            onKey: function () { close(); return true; },
+            onKey: function (k) {
+                // Right = next photo (Rotate / Live). Anything else dismisses.
+                if (k === UI.KEY.RIGHT && rotating()) {
+                    wakeFromDark();
+                    advancePhoto();
+                    return true;
+                }
+                close();
+                return true;
+            },
             onBack: function () { close(); return true; }
         });
         setInterval(function () {

@@ -12,6 +12,7 @@
     ];
 
     var token = 0;
+    var lastHomeUrl = '';
 
     function bundled() { return window.WALLPAPERS || []; }
 
@@ -33,6 +34,8 @@
     }
 
     function bg() { return document.getElementById('bg'); }
+    function bgPhoto() { return document.getElementById('bg-photo'); }
+    function bgPhotoBlur() { return document.getElementById('bg-photo-blur'); }
     function scrim() { return document.getElementById('bg-scrim'); }
 
     function setScrim(on) {
@@ -40,26 +43,80 @@
         if (el) el.classList.toggle('hidden', !on);
     }
 
-    // The next image is decoded before it replaces the current one, so the screen never flashes empty.
-    // No wallpaper falls back to the stylesheet's plain gradient (img/bg.jpg).
+    function photoUrls(w) {
+        var list = [];
+        function add(u) {
+            if (u && list.indexOf(u) < 0) list.push(u);
+        }
+        add(w.file);
+        add(w.fileFallback);
+        (w.fileFallbacks || []).forEach(add);
+        return list;
+    }
+
+    // Home keeps a light wallpaper: mid-size cover, no blur filter. Full-quality contain+blur
+    // is screensaver-only — blur/original under the UI made Home feel stuck on this TV.
     function display(w) {
         var t = ++token;
+        var photo = bgPhoto();
+        var blur = bgPhotoBlur();
         if (!w) {
+            lastHomeUrl = '';
             bg().style.backgroundImage = '';
+            if (photo) {
+                photo.removeAttribute('src');
+                photo.classList.remove('on', 'contain');
+            }
+            if (blur) {
+                blur.removeAttribute('src');
+                blur.classList.remove('on');
+            }
             setScrim(false);
             return;
         }
-        var img = new Image();
-        img.onload = function () {
-            if (t !== token) return;
-            bg().style.backgroundImage = 'url("' + w.file + '")';
-            setScrim(!!w.remote);
-        };
-        img.onerror = function () {
-            DevLog.log('Wallpaper failed to load: ' + w.file);
-            if (t === token && w.remote) setScrim(false);
-        };
-        img.src = w.file;
+        // Prefer thumb/preview first so Immich originals are not decoded behind the tiles.
+        var urls = [];
+        function add(u) {
+            if (u && urls.indexOf(u) < 0) urls.push(u);
+        }
+        add(w.thumb);
+        add(w.fileFallback);
+        add(w.file);
+        (w.fileFallbacks || []).forEach(add);
+        if (!urls.length) urls = photoUrls(w);
+
+        var i = 0;
+        var probe = new Image();
+        function tryUrl() {
+            if (i >= urls.length) {
+                DevLog.log('Wallpaper failed to load: ' + w.file);
+                if (t === token && w.remote) setScrim(false);
+                return;
+            }
+            probe.onload = function () {
+                if (t !== token) return;
+                var url = urls[i];
+                if (url === lastHomeUrl && photo && photo.classList.contains('on')) return;
+                lastHomeUrl = url;
+                bg().style.backgroundImage = 'none';
+                if (blur) {
+                    blur.removeAttribute('src');
+                    blur.classList.remove('on');
+                }
+                if (photo) {
+                    photo.src = url;
+                    photo.classList.add('on');
+                    photo.classList.remove('contain');
+                }
+                setScrim(!!w.remote);
+            };
+            probe.onerror = function () {
+                i++;
+                tryUrl();
+            };
+            probe.src = urls[i];
+        }
+        tryUrl();
     }
 
     function currentKey() {
@@ -76,20 +133,46 @@
         display(find(currentKey()));
     }
 
-    function next() {
+    // Next catalog entry: sequential wrap, or random excluding the current key.
+    function pickNext(l, key, random) {
+        if (!l || !l.length) return null;
+        if (!random || l.length < 2) {
+            var i = l.findIndex(function (w) { return w.key === key; });
+            return l[((i < 0 ? 0 : i) + 1) % l.length];
+        }
+        var others = l.filter(function (w) { return w.key !== key; });
+        return others[Math.floor(Math.random() * others.length)];
+    }
+
+    // `done(w)` is called with the chosen entry (async for on-demand live sources).
+    function next(done) {
         var p = Prefs.get().wallpaper;
+        var finish = function (w) {
+            if (typeof done === 'function') done(w || null);
+            return w || null;
+        };
+        // Live on-demand: pull the next photo (prefetch if ready).
+        if (isLive() && window.LiveWallpaper && LiveWallpaper.isOnDemand()) {
+            LiveWallpaper.takeNext().then(function (w) {
+                if (!w) return finish(null);
+                p.lastChange = Date.now();
+                Prefs.save();
+                if (!(window.Screensaver && Screensaver.isOpen())) apply();
+                finish(w);
+            }, function () { finish(null); });
+            return null;
+        }
         var l = list();
-        if (!l.length) return null;
-        var key = currentKey();
-        var i = l.findIndex(function (w) { return w.key === key; });
-        var w = l[(i + 1) % l.length];
+        if (!l.length) return finish(null);
+        var w = pickNext(l, currentKey(), !!p.random);
+        if (!w) return finish(null);
         if (isLive()) p.liveKey = w.key;
         else p.photo = w.key;
         p.lastChange = Date.now();
         if (p.mode === 'off') p.mode = 'photo';
         Prefs.save();
         apply();
-        return w;
+        return finish(w);
     }
 
     function due() {
@@ -126,6 +209,25 @@
 
     function start() {
         apply();
+        // Mix publishes each source as it lands; apply the liveKey it just selected.
+        if (window.LiveWallpaper) {
+            LiveWallpaper.onChange(function () {
+                if (!isLive()) return;
+                if (window.Screensaver && Screensaver.isOpen()) return;
+                var p = Prefs.get().wallpaper;
+                var l = list();
+                if (!l.length) return;
+                if (!LiveWallpaper.find(p.liveKey)) {
+                    p.liveKey = l[0].key;
+                    Prefs.save();
+                }
+                // Skip no-op applies (metadata polish used to reload the same Home wallpaper).
+                var cur = find(p.liveKey);
+                var nextUrl = cur && (cur.thumb || cur.file);
+                if (nextUrl && nextUrl === lastHomeUrl) return;
+                apply();
+            });
+        }
         if (isLive()) ensureLive(true);
         homeShown();
         // The screen saver has its own photo cycle and covers Home completely, so rotating
@@ -144,6 +246,7 @@
         bundled: bundled,
         find: find,
         interval: interval,
+        pickNext: pickNext,
         apply: apply,
         next: next,
         homeShown: homeShown,
