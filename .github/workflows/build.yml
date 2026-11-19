@@ -58,12 +58,12 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
-          name: Arn0 · dx616b — latest
+          name: Arn0+ — latest
           prerelease: true
           make_latest: false
           target_commitish: ${{ github.sha }}
           body: |
-            **Arn0 · dx616b** — Immich / Mix / Navidrome extras on NelsonEU’s Arn0.
+            **Arn0+** — Immich / Mix / Navidrome extras on NelsonEU’s Arn0.
 
             Rolling unsigned `.wgt` from `main` (`${{ github.sha }}`).
             Install with [Apps2Samsung](https://github.com/Apps2Samsung/Apps2Samsung) → Custom WGT

@@ -1,10 +1,10 @@
-# Arn0 · dx616b — Immich / Mix / Navidrome
+# Arn0+ — Immich / Mix / Navidrome
 
 A quieter home screen for a Samsung Tizen TV: clock, your apps, your consoles — plus live photos
 (Immich, Mix, and more), weather, and optional Navidrome music.
 
 Fork of [NelsonEU/arn0-tv](https://github.com/NelsonEU/arn0-tv) by [NelsonEU](https://github.com/NelsonEU) — thank you.
-TV label is **Arn0 · dx616b**; app id stays `Arn0Lnchr0.Launcher` so Home / Vetro setup matches upstream.
+TV label is **Arn0+**; app id stays `Arn0Lnchr0.Launcher` so Home / Vetro setup matches upstream.
 
 ![Home](docs/preview.png)
 
