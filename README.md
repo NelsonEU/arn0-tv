@@ -22,23 +22,38 @@ care; [the setup guide](docs/setup-tv.md) covers the risks and recovery steps.
 
 ## This fork
 
-Built on [NelsonEU/arn0-tv](https://github.com/NelsonEU/arn0-tv). Extra behaviour on top of upstream:
+Built on [NelsonEU/arn0-tv](https://github.com/NelsonEU/arn0-tv) for one living-room TV. Still a
+starting point, not a product — expect to fork and adapt. Extra behaviour on top of upstream:
 
-- **Live backgrounds** — Bing, NASA APOD (apod.nasa.gov), or Unsplash as a capped wallpaper
-  pool (Settings → Background → Live). URLs/titles only; images stay remote. Bing/NASA need
-  no key; Unsplash Access Key is set in Settings (or seeded via `config.local.js`).
+- **Live backgrounds (multiple providers)** — Settings → Background → Live. Providers:
+  **Bing**, **NASA APOD**, **Wikimedia Picture of the Day** (no keys), **Unsplash** (Access Key),
+  **Immich** (shared album link), or **Mix** (all configured sources). Metadata only is cached;
+  image bytes stay on the remote host. Unsplash / Immich are set in Settings (or seeded via
+  `config.local.js`).
+- **Upcoming plan + Shuffle** — Live keeps ~15 upcoming slots filled in the background (first
+  photo shows as soon as one source answers). Mix round-robins providers, or picks at random when
+  **Shuffle** is on; Shuffle also randomises Immich assets and day-based picks. Home stays
+  responsive while the plan fills.
+- **Immich captions** — search metadata first, then a full-asset polish for place/title; the
+  screen saver refreshes the caption when polish lands.
+- **Screen saver** — landscape photos cover + pan; portraits use contain over a blurred twin with
+  a slow focus-zoom (can be cut mid-zoom when the photo changes). **Right** on the remote skips to
+  the next photo; any other key closes. Clock stays minutes-only (seconds made the UI sluggish on
+  this TV).
 - **Home weather** — current conditions beside the clock (city · condition, temp with high/low),
   plus a strip of the next 7 days. Same Open-Meteo reading as the screen saver; place and unit in
   Settings → Weather.
-- **Subsonic / OpenSubsonic music** — ambient random playback in the launcher only. Credentials in
-  Settings → Music (not in Advanced export). Compact play/next + now-playing beside weather on
-  Home; title/artist also on the screen saver. Long labels scroll a few times then stop (avoids
-  idle CPU from infinite marquee).
+- **Music (Navidrome / OpenSubsonic / Subsonic)** — ambient random playback in the launcher only,
+  via the Subsonic API (works with [Navidrome](https://www.navidrome.org/) and other compatible
+  servers). Credentials in Settings → Music (not in Advanced export). Compact play/next +
+  now-playing beside weather on Home; title/artist also on the screen saver. Long labels scroll a
+  few times then stop (avoids idle CPU from infinite marquee).
 - **Glass tiles** — translucent brand fills so the wallpaper shows through on apps and consoles.
 - **Native icons** — auto-crop transparent padding so sparse icons (e.g. Moonlight) fill the tile;
   optional `iconPad` override in `config.js` if needed.
 - **Home polish** — Internet / Live TV brands, centered app and console labels, Live TV shown as
-  **TV**, larger app icon, music chip without a solid panel behind it.
+  **TV**, larger app icon, music chip without a solid panel behind it; Home wallpaper stays a
+  light cover (no heavy blur) so the UI stays responsive.
 
 Upstream Home-button / install docs still apply; this fork does not change that path.
 
@@ -47,7 +62,7 @@ Upstream Home-button / install docs still apply; this fork does not change that 
 Needs Node.js 20 or newer. Nothing is installed and no TV is involved.
 
 ```sh
-git clone https://github.com/<you>/arn0-tv.git
+git clone https://github.com/dx616b/arn0-tv.git
 cd arn0-tv
 npm run preview        # http://localhost:8080
 ```
@@ -153,11 +168,11 @@ src/                  everything that goes into the .wgt
   js/apps.js          list / filter / launch via tizen.application
   js/inputs.js        HDMI via tizen.systeminfo + tizen.tvwindow
   js/wallpaper.js     wallpaper display and rotation
-  js/live-wallpaper.js  Bing daily pool for Live backgrounds
-  js/screensaver.js   idle screen saver: photos, clock, weather, now-playing
+  js/live-wallpaper.js  Live providers (Bing, NASA, Wikimedia, Unsplash, Immich, Mix) + plan
+  js/screensaver.js   idle screen saver: photos, clock, weather, now-playing, remote next
   js/appearance.js    clock, date and font settings
   js/weather.js       Open-Meteo for Home and the screen saver
-  js/subsonic.js      OpenSubsonic / Subsonic client (enc: auth)
+  js/subsonic.js      OpenSubsonic / Subsonic / Navidrome client (enc: auth)
   js/music.js         ambient random playback and now-playing UI
   js/prefs.js         settings saved on the TV
   js/ui.js            screens, focus, keys, toast, pop-up menu
@@ -178,7 +193,8 @@ docs/                 setup guide
 Saved on the TV in `localStorage`. They survive restarts and in-place updates, not an uninstall.
 
 - **Background** — Off (plain gradient), one photo, rotate (on each Home, 30 s, 5 min, 15 min,
-  1 hour, daily), or **Live** (Bing / NASA APOD / Unsplash; Unsplash key in Settings).
+  1 hour, daily), or **Live** (Bing / NASA APOD / Wikimedia POTD / Unsplash / Immich album /
+  Mix). Unsplash key and Immich share link in Settings; **Shuffle** for Rotate and Live.
 - **Apps on Home** — OK on an app opens Move / Remove; OK on the right-hand slot adds one.
 - **Consoles** — per console: rename (on-screen keyboard), HDMI port, logo, how it opens, hide,
   reorder, remove; plus add a console.
@@ -187,10 +203,11 @@ Saved on the TV in `localStorage`. They survive restarts and in-place updates, n
 - **Navigation sound** — turn arrow-key sounds on or off, choose Soft, Warm or Bright, and preview
   the selected tone.
 - **Screen saver** — on or off, start after 3/5/10/15 min idle on Home, photo change every
-  60/75/90 s while Background is on Rotate, go dark after 30 min / 1 hour / 2 hours / never, and
-  show it now.
+  60/75/90 s while Background is on Rotate or Live, go dark after 30 min / 1 hour / 2 hours /
+  never, and show it now. Right skips photo; other keys close.
 - **Weather** — place (city list or off), °C / °F; feeds Home and the screen saver.
-- **Music** — Subsonic/OpenSubsonic server, user, password, on/off, volume; play/next from Home.
+- **Music** — Navidrome / OpenSubsonic / Subsonic server, user, password, on/off, volume;
+  play/next from Home.
 - **Samsung Home** — opens `com.samsung.tv.csfs`, from which TV settings are one press away.
   Opening `com.samsung.tv.coba.setting` directly does not work on this TV. Keep this entry: it is
   the route back if you have redirected the Home button.
@@ -208,8 +225,9 @@ Green.
 ### Screen saver
 
 After a few minutes with no input on Home it shows the wallpapers full screen with the clock, the
-weather, optional now-playing, and the photo's name. Any button closes it, and that press does
-nothing else. It never appears over a console input, another screen or the hidden game.
+weather, optional now-playing, and the photo caption. **Right** skips to the next photo (Rotate /
+Live); any other button closes it, and that press does nothing else. It never appears over a
+console input or another screen.
 
 Weather comes from [Open-Meteo](https://open-meteo.com/) (no API key). Pick a city in Settings →
 Weather, or seed coordinates in `config.local.js`. The reading is cached in `localStorage` so Home
@@ -217,12 +235,12 @@ and the screen saver open with real numbers even after the TV has been off; it r
 once an hour and only when something is about to show it, and anything older than three hours is
 treated as no reading at all.
 
-Everything in it moves, because a clock parked in one corner for an hour is a burn-in risk: the
-photo drifts across 320 px while it is up and the next one drifts back the other way, the corner
-text shifts a few pixels on each photo change, the clock moves to another corner every two and a
-half minutes, and the whole thing fades to black once the configured hour is up. Photos follow the
-**Background** setting — Rotate cycles them, a single photo is held, Off leaves just the clock —
-using the screen saver's own position, so it never rewrites the wallpaper Home comes back to.
+Everything in it moves, because a clock parked in one corner for an hour is a burn-in risk:
+landscape photos cover and pan; portraits sit over a blurred fill and focus-zoom slowly (a photo
+change may cut the zoom mid-way). The clock moves to another corner every couple of minutes, and
+the whole thing fades to black once the configured hour is up. Photos follow the **Background**
+setting — Rotate / Live cycle them, a single photo is held, Off leaves just the clock — using the
+screen saver's own position, so it never rewrites the wallpaper Home comes back to.
 
 Black, rather than off, because a web app cannot turn this panel off: `tizen.power` and
 `webapis.power` are both absent on the reference TV, which **Platform probe: what APIs this TV
@@ -301,7 +319,7 @@ probe now measures against `Date.now()` and flags any sample faster than the pan
 | `application.info` | listing apps |
 | `tv.inputdevice` | colour keys (arrows, OK and Back need no registration) |
 | `tv.window` | HDMI source switching and display |
-| `internet` + `<access origin="*">` | Open-Meteo, Bing/NASA/Unsplash live wallpapers, Subsonic streams, development log |
+| `internet` + `<access origin="*">` | Open-Meteo; Bing/NASA/Wikimedia/Unsplash/Immich live wallpapers; Subsonic/Navidrome streams; development log |
 
 ## Contribute
 
@@ -314,10 +332,14 @@ TV where `db/menu/smart_hub/ontvsetting/auto_start` starts at `0`.
 ## Licence and credits
 
 MIT for the original code and documentation — see [LICENSE](LICENSE). Bundled fonts (OFL), Unsplash
-photos and brand marks keep their own terms. Weather data by [Open-Meteo](https://open-meteo.com/),
-used under its non-commercial licence. Brand names and logos belong to their owners.
+photos and brand marks keep their own terms. Live photos may also come from Bing, NASA APOD,
+Wikimedia Commons, or your own Immich album — each keeps its own terms. Weather data by
+[Open-Meteo](https://open-meteo.com/), used under its non-commercial licence. Music talks to
+Navidrome / OpenSubsonic / Subsonic servers you configure. Brand names and logos belong to their
+owners.
 
-This project is independent and is not affiliated with Samsung or any streaming service.
+This project is independent and is not affiliated with Samsung, Immich, Navidrome, or any
+streaming service.
 
 The Home-button approach follows [CleanFrame](https://github.com/nthnclrk/CleanFrame), which
 documented the method on a 2024 Frame. The guarded helpers here are an adaptation tested on the
