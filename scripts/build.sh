@@ -10,10 +10,8 @@ cd "$(dirname "$0")/.."
 node scripts/build-marks.mjs
 
 mkdir -p dist
-rm -f dist/Arn0Plus.wgt dist/arn0-launcher.wgt
+rm -f dist/Arn0Plus.wgt
 (cd src && zip -q -r -X ../dist/Arn0Plus.wgt . -x '*.DS_Store' -x '.*' -x 'img/marks/*')
-# Keep the old name as a copy for local scripts that still look for it.
-cp -f dist/Arn0Plus.wgt dist/arn0-launcher.wgt
 
 echo "Built dist/Arn0Plus.wgt"
 unzip -l dist/Arn0Plus.wgt
