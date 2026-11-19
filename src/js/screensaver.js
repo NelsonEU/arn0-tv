@@ -228,6 +228,42 @@
         return list;
     }
 
+    /*
+     * naturalWidth/Height ignore EXIF rotation; Wikimedia (and many phone JPEGs) store a
+     * landscape buffer that displays as portrait with image-orientation: from-image. Measure
+     * a hidden oriented <img> so contain+blur matches what the viewer actually sees.
+     */
+    function orientedSize(url, fallback, done) {
+        var probe = document.createElement('img');
+        var settled = false;
+        var finish = function (w, h) {
+            if (settled) return;
+            settled = true;
+            if (probe.parentNode) probe.parentNode.removeChild(probe);
+            if (!w || !h) {
+                w = (fallback && fallback.naturalWidth) || 0;
+                h = (fallback && fallback.naturalHeight) || 0;
+            }
+            done(w, h);
+        };
+        probe.setAttribute('alt', '');
+        probe.style.cssText = 'position:fixed;left:0;top:0;margin:0;border:0;padding:0;' +
+            'width:auto;height:auto;max-width:none;max-height:none;' +
+            'opacity:0;pointer-events:none;image-orientation:from-image;z-index:-1';
+        probe.onload = function () {
+            document.body.appendChild(probe);
+            void probe.offsetWidth;
+            finish(probe.offsetWidth, probe.offsetHeight);
+        };
+        probe.onerror = function () { finish(0, 0); };
+        probe.src = url;
+        if (probe.complete && probe.naturalWidth) {
+            document.body.appendChild(probe);
+            void probe.offsetWidth;
+            finish(probe.offsetWidth, probe.offsetHeight);
+        }
+    }
+
     function showPhoto(w) {
         var token = ++photoToken;
         if (!w) {
@@ -240,16 +276,16 @@
         var swapped = false;
         var urls = photoUrls(w);
         var ui = 0;
-        var swap = function (url, probe) {
+        var swap = function (url, ow, oh) {
             if (swapped || token !== photoToken || !open) return;
             swapped = true;
             var back = layers[1 - front];
             var old = layers[front];
             var imgEl = back.querySelector('.ss-photo-img');
             var blurEl = back.querySelector('.ss-photo-blur');
-            // Portrait = taller than wide (from decoded pixels). Only those get contain+blur+zoom;
+            // Portrait = taller than wide after EXIF orientation. Contain+blur+zoom only then;
             // landscape fills the panel with cover + the usual pan.
-            var portrait = !!(probe && probe.naturalWidth && probe.naturalHeight > probe.naturalWidth);
+            var portrait = !!(ow && oh && oh > ow);
             var contain = portrait;
             back.classList.toggle('contain', contain);
             back.classList.toggle('portrait', portrait);
@@ -258,8 +294,17 @@
             else back.style.backgroundImage = 'url("' + url + '")';
             if (blurEl) {
                 // Blur the small thumb — full-size originals + filter:blur are costly on this TV.
-                if (contain) blurEl.src = w.thumb || url;
-                else blurEl.removeAttribute('src');
+                // If the thumb 404s (some Wikimedia/Unsplash sizes), fall back to the sharp URL.
+                if (contain) {
+                    blurEl.onerror = function () {
+                        blurEl.onerror = null;
+                        if (blurEl.getAttribute('src') !== url) blurEl.src = url;
+                    };
+                    blurEl.src = w.thumb || url;
+                } else {
+                    blurEl.onerror = null;
+                    blurEl.removeAttribute('src');
+                }
             }
             // Placed at the corner startPan is about to drift away from, animation suppressed.
             resetPan(back, panSign);
@@ -271,7 +316,11 @@
             old.style.opacity = '0';
         };
         var img = new Image();
-        img.onload = function () { swap(urls[ui], img); };
+        img.onload = function () {
+            orientedSize(urls[ui], img, function (ow, oh) {
+                swap(urls[ui], ow, oh);
+            });
+        };
         img.onerror = function () {
             ui++;
             if (ui < urls.length) {
@@ -281,7 +330,11 @@
             DevLog.log('Screen saver photo failed: ' + w.file);
         };
         img.src = urls[0];
-        if (img.complete && img.naturalWidth) swap(urls[0], img);
+        if (img.complete && img.naturalWidth) {
+            orientedSize(urls[0], img, function (ow, oh) {
+                swap(urls[0], ow, oh);
+            });
+        }
     }
 
     // ---------- Text tone
