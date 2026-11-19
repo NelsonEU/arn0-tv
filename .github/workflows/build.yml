@@ -27,8 +27,9 @@ jobs:
       - name: Name package
         id: pkg
         run: |
-          ver=$(grep -o 'version="[^"]*"' src/config.xml | grep -v 'xml version' | head -1 | sed 's/version="//;s/"$//')
+          ver=$(python3 -c "import re,sys; t=open('src/config.xml').read(); m=re.search(r'<widget\\b[^>]*\\bversion=\"([^\"]+)\"', t, re.S); print(m.group(1) if m else sys.exit('no widget version'))")
           echo "version=$ver" >> "$GITHUB_OUTPUT"
+          echo "Package version $ver"
           cp dist/arn0-launcher.wgt "dist/arn0-launcher-${ver}.wgt"
           sha256sum "dist/arn0-launcher-${ver}.wgt" | tee "dist/arn0-launcher-${ver}.wgt.sha256"
 
