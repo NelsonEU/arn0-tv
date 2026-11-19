@@ -23,7 +23,14 @@ care; [the setup guide](docs/setup-tv.md) covers the risks and recovery steps.
 ## This fork
 
 Built on [NelsonEU/arn0-tv](https://github.com/NelsonEU/arn0-tv) for one living-room TV. Still a
-starting point, not a product — expect to fork and adapt. Extra behaviour on top of upstream:
+starting point, not a product — expect to fork and adapt.
+
+On that TV this launcher is installed and kept as the **Home screen** with
+[Vetro](https://github.com/andrearicci93/vetro) (sideload / remapping helper). That is optional:
+the app also runs from the app list. Remapping Home depends on Vetro and undocumented TV
+preferences — own-TV only, follow Vetro’s docs and [the setup guide](docs/setup-tv.md).
+
+Extra behaviour on top of upstream:
 
 - **Live backgrounds (multiple providers)** — Settings → Background → Live. Providers:
   **Bing**, **NASA APOD**, **Wikimedia Picture of the Day** (no keys), **Unsplash** (Access Key),
