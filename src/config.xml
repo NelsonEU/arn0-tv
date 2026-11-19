@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <widget xmlns="http://www.w3.org/ns/widgets" xmlns:tizen="http://tizen.org/ns/widgets"
-        id="http://arn0.tv/launcher" version="0.6.12" viewmodes="maximized">
+        id="http://arn0.tv/launcher" version="0.6.13" viewmodes="maximized">
     <!-- package must be exactly 10 alphanumeric characters -->
     <!-- KEEP THIS APPLICATION ID STABLE: the TV's Home-button mapping targets it directly.
          Changing it can leave Home pointing to an app ID that is no longer installed. -->

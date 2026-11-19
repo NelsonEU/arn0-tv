@@ -70,7 +70,7 @@ Arrow keys + Enter; Esc = Back.
 
 ## Put it on a TV
 
-1. Download **[Arn0Plus-0.6.12.wgt](https://github.com/dx616b/arn0-tv/releases/download/v0.6.12/Arn0Plus-0.6.12.wgt)**
+1. Download **[Arn0Plus-0.6.13.wgt](https://github.com/dx616b/arn0-tv/releases/download/v0.6.13/Arn0Plus-0.6.13.wgt)**
    (or build yourself: `npm run build` → `dist/Arn0Plus.wgt`)
 2. Install with [Apps2Samsung](https://github.com/Apps2Samsung/Apps2Samsung) → Custom WGT
    (it signs on install)
