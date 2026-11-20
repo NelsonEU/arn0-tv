@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Syntax-check JavaScript
+        run: |
+          set -eu
+          find src/js scripts -type f \( -name '*.js' -o -name '*.mjs' \) \
+            ! -name 'config.local.js' \
+            -print0 | sort -z | xargs -0 -n1 node --check
+
+      - name: Validate config.xml
+        run: |
+          set -eu
+          python3 - <<'PY'
+          import re, sys
+          from pathlib import Path
+          text = Path("src/config.xml").read_text(encoding="utf-8")
+          ver = re.search(r'<widget\b[^>]*\bversion="([^"]+)"', text, re.S)
+          app = re.search(r'<tizen:application\b[^>]*\bid="([^"]+)"', text, re.S)
+          name = re.search(r"<name>([^<]+)</name>", text)
+          if not ver:
+              sys.exit("config.xml: missing widget version")
+          if not app:
+              sys.exit("config.xml: missing tizen:application id")
+          if not name:
+              sys.exit("config.xml: missing <name>")
+          print(f"ok name={name.group(1)!r} id={app.group(1)!r} version={ver.group(1)!r}")
+          PY
+
+      - name: Reject committed local overrides
+        run: |
+          set -eu
+          if git ls-files --error-unmatch src/js/config.local.js >/dev/null 2>&1; then
+            echo "src/js/config.local.js must stay untracked (local secrets/overrides)"
+            exit 1
+          fi
+          echo "ok: config.local.js not tracked"
