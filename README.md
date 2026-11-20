@@ -46,7 +46,7 @@ Almost everything is in **Settings** on the TV (gear on Home):
 | Setting | What to set |
 | --- | --- |
 | **Background** | Off / Photo / Rotate / **Live**. Pick provider (Bing, NASA, Wikimedia, Unsplash, Immich, Mix). Turn **Shuffle** on or off. Unsplash Access Key and Immich share link go here. |
-| **Weather** | City and °C / °F |
+| **Weather** | Location (detect / search) and °C / °F |
 | **Music** | Server URL, user, password, on/off, volume |
 | **Screen saver** | Delay, how often photos change, when to go dark |
 | **Apps / Consoles** | What appears on Home, HDMI ports |

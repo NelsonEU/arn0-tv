@@ -641,27 +641,20 @@
         var p = Prefs.get().weather;
         var body = $('weather-body');
         body.innerHTML = '';
+        var on = Weather.configured();
+        var label = Weather.placeLabel();
 
         var placeBlock = el('div', 'setting-block');
         placeBlock.appendChild(el('h2', '', 'Place'));
         var placeChips = el('div', 'chips wrap');
-        Weather.PLACES.forEach(function (place) {
-            placeChips.appendChild(chip(place.label, p.place === place.key,
-                { kind: 'place', value: place.key }));
-        });
-        if (p.place === 'custom') {
-            placeChips.appendChild(chip(p.label || 'Custom', true, { kind: 'place', value: 'custom' }));
+        placeChips.appendChild(chip('Off', !on, { kind: 'place', value: 'off' }));
+        if (on) {
+            placeChips.appendChild(chip(label || 'Custom', true, { kind: 'place', value: 'current' }));
         }
+        placeChips.appendChild(chip('Use my location', false, { kind: 'detect' }));
+        placeChips.appendChild(chip('Search city…', false, { kind: 'search' }));
         placeBlock.appendChild(placeChips);
         body.appendChild(placeBlock);
-
-        var findBlock = el('div', 'setting-block');
-        findBlock.appendChild(el('h2', '', 'Find'));
-        var findChips = el('div', 'chips wrap');
-        findChips.appendChild(chip('Use my location', false, { kind: 'detect' }));
-        findChips.appendChild(chip('Search city…', false, { kind: 'search' }));
-        findBlock.appendChild(findChips);
-        body.appendChild(findBlock);
 
         var unitBlock = el('div', 'setting-block');
         unitBlock.appendChild(el('h2', '', 'Unit'));
@@ -672,7 +665,7 @@
         body.appendChild(unitBlock);
 
         var note = el('p', 'setting-note muted',
-            'Shown on Home and the screen saver. Open-Meteo; location uses approximate IP when asked.');
+            'Shown on Home and the screen saver. Open-Meteo; Use my location is approximate IP.');
         body.appendChild(note);
     }
 
@@ -726,8 +719,9 @@
             return;
         }
         if (item.kind === 'place') {
-            if (item.value === 'custom') return;
-            p.place = item.value;
+            if (item.value === 'current') return;
+            if (item.value !== 'off') return;
+            p.place = 'off';
             p.latitude = null;
             p.longitude = null;
             p.label = null;

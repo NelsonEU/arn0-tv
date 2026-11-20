@@ -65,7 +65,7 @@ window.LAUNCHER_CONFIG = {
 
     /*
      * Weather defaults for the screen saver corner (Open-Meteo). Settings → Weather is the
-     * usual way to pick a city and unit on the TV; values here only seed prefs on first run
+     * usual way to set place (detect / search) and unit on the TV; values here only seed prefs on first run
      * (or when you set coordinates in config.local.js before the first save).
      */
     weather: {

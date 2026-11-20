@@ -2,8 +2,8 @@
  * Weather for the screen saver, from Open-Meteo. No API key, free for non-commercial use.
  *
  * Place and unit live in Prefs (Settings → Weather). config.js only supplies defaults.
- * Places are a fixed remote-friendly list; Settings also offers IP detect and city search
- * (Open-Meteo geocoding). Custom places store latitude/longitude/label in prefs.
+ * Place is Off, or a custom lat/lon/label from IP detect or Open-Meteo city search.
+ * Older preset city keys in saved prefs are migrated to custom on load.
  *
  * There is no polling. A TV launcher spends most of its life in the background with JavaScript
  * paused, so a timer would be both useless and rude; instead the reading is refreshed when
@@ -26,24 +26,23 @@
     var TIMEOUT_MS = 8000;
     var RETRY_MS = 10 * 60 * 1000;
 
-    // Remote-friendly city list. Two decimals is finer than Open-Meteo's grid.
-    var PLACES = [
-        { key: 'off', label: 'Off' },
-        { key: 'paris', label: 'Paris', latitude: 48.86, longitude: 2.35 },
-        { key: 'lyon', label: 'Lyon', latitude: 45.76, longitude: 4.84 },
-        { key: 'marseille', label: 'Marseille', latitude: 43.30, longitude: 5.37 },
-        { key: 'bordeaux', label: 'Bordeaux', latitude: 44.84, longitude: -0.58 },
-        { key: 'lille', label: 'Lille', latitude: 50.63, longitude: 3.06 },
-        { key: 'brussels', label: 'Brussels', latitude: 50.85, longitude: 4.35 },
-        { key: 'amsterdam', label: 'Amsterdam', latitude: 52.37, longitude: 4.90 },
-        { key: 'london', label: 'London', latitude: 51.51, longitude: -0.13 },
-        { key: 'madrid', label: 'Madrid', latitude: 40.42, longitude: -3.70 },
-        { key: 'barcelona', label: 'Barcelona', latitude: 41.39, longitude: 2.17 },
-        { key: 'berlin', label: 'Berlin', latitude: 52.52, longitude: 13.41 },
-        { key: 'rome', label: 'Rome', latitude: 41.90, longitude: 12.50 },
-        { key: 'tirana', label: 'Tirana', latitude: 41.33, longitude: 19.82 },
-        { key: 'newyork', label: 'New York', latitude: 40.71, longitude: -74.01 }
-    ];
+    // Former preset chips — kept only so saved prefs still resolve after the list was dropped.
+    var LEGACY_PLACES = {
+        paris: { label: 'Paris', latitude: 48.86, longitude: 2.35 },
+        lyon: { label: 'Lyon', latitude: 45.76, longitude: 4.84 },
+        marseille: { label: 'Marseille', latitude: 43.30, longitude: 5.37 },
+        bordeaux: { label: 'Bordeaux', latitude: 44.84, longitude: -0.58 },
+        lille: { label: 'Lille', latitude: 50.63, longitude: 3.06 },
+        brussels: { label: 'Brussels', latitude: 50.85, longitude: 4.35 },
+        amsterdam: { label: 'Amsterdam', latitude: 52.37, longitude: 4.90 },
+        london: { label: 'London', latitude: 51.51, longitude: -0.13 },
+        madrid: { label: 'Madrid', latitude: 40.42, longitude: -3.70 },
+        barcelona: { label: 'Barcelona', latitude: 41.39, longitude: 2.17 },
+        berlin: { label: 'Berlin', latitude: 52.52, longitude: 13.41 },
+        rome: { label: 'Rome', latitude: 41.90, longitude: 12.50 },
+        tirana: { label: 'Tirana', latitude: 41.33, longitude: 19.82 },
+        newyork: { label: 'New York', latitude: 40.71, longitude: -74.01 }
+    };
 
     function group(code) {
         if (code <= 1) return 'clear';
@@ -100,22 +99,33 @@
         return (window.LAUNCHER_CONFIG && window.LAUNCHER_CONFIG.weather) || {};
     }
 
-    function place(key) {
-        return PLACES.find(function (p) { return p.key === key; }) || PLACES[0];
-    }
-
     function prefsWeather() {
         return Prefs.get().weather;
     }
 
+    // Turn old preset keys (paris, …) into custom lat/lon/label once.
+    function migratePlace(p) {
+        if (!p || p.place === 'off' || p.place === 'custom') return false;
+        var legacy = LEGACY_PLACES[p.place];
+        if (!legacy) {
+            p.place = 'off';
+            p.latitude = null;
+            p.longitude = null;
+            p.label = null;
+            return true;
+        }
+        p.place = 'custom';
+        p.latitude = legacy.latitude;
+        p.longitude = legacy.longitude;
+        p.label = p.label || legacy.label;
+        return true;
+    }
+
     function coords() {
         var p = prefsWeather();
-        var chosen = place(p.place);
-        if (chosen.key === 'off') return null;
-        if (typeof chosen.latitude === 'number' && typeof chosen.longitude === 'number') {
-            return { latitude: chosen.latitude, longitude: chosen.longitude, unit: p.unit };
-        }
-        if (p.place === 'custom' && typeof p.latitude === 'number' && typeof p.longitude === 'number') {
+        if (migratePlace(p)) Prefs.save();
+        if (p.place === 'off' || !p.place) return null;
+        if (typeof p.latitude === 'number' && typeof p.longitude === 'number') {
             return { latitude: p.latitude, longitude: p.longitude, unit: p.unit };
         }
         return null;
@@ -125,34 +135,15 @@
         return !!coords();
     }
 
-    function matchPlace(lat, lon) {
-        var best = null;
-        var bestD = Infinity;
-        PLACES.forEach(function (p) {
-            if (typeof p.latitude !== 'number') return;
-            var d = Math.abs(p.latitude - lat) + Math.abs(p.longitude - lon);
-            if (d < bestD) {
-                bestD = d;
-                best = p;
-            }
-        });
-        return bestD < 0.15 ? best.key : null;
-    }
-
     // Seed prefs.weather from config.js when the user has not chosen a place yet.
     function seedFromConfig(target) {
         var c = configDefaults();
         target.unit = c.unit === 'fahrenheit' ? 'fahrenheit' : 'celsius';
         if (typeof c.latitude === 'number' && typeof c.longitude === 'number') {
-            var key = matchPlace(c.latitude, c.longitude);
-            if (key) {
-                target.place = key;
-            } else {
-                target.place = 'custom';
-                target.latitude = c.latitude;
-                target.longitude = c.longitude;
-                target.label = typeof c.label === 'string' ? c.label : null;
-            }
+            target.place = 'custom';
+            target.latitude = c.latitude;
+            target.longitude = c.longitude;
+            target.label = typeof c.label === 'string' ? c.label : null;
         } else {
             target.place = 'off';
             target.latitude = null;
@@ -259,12 +250,7 @@
         });
     }
 
-    // Prefer a preset city when coordinates are close; otherwise store as custom + label.
     function resolvePlace(lat, lon, label) {
-        var key = matchPlace(lat, lon);
-        if (key) {
-            return { place: key, latitude: null, longitude: null, label: null };
-        }
         return {
             place: 'custom',
             latitude: lat,
@@ -308,9 +294,9 @@
 
     function placeLabel() {
         var p = prefsWeather();
-        if (p.place === 'custom') return p.label || 'Custom';
-        var chosen = place(p.place);
-        return chosen.key === 'off' ? '' : chosen.label;
+        if (migratePlace(p)) Prefs.save();
+        if (p.place === 'off' || !p.place) return '';
+        return p.label || 'Custom';
     }
 
     function dayLabel(iso, locale) {
@@ -443,12 +429,11 @@
     }
 
     window.Weather = {
-        PLACES: PLACES,
         seedFromConfig: seedFromConfig,
-        place: place,
         resolvePlace: resolvePlace,
         detectLocation: detectLocation,
         searchPlaces: searchPlaces,
+        placeLabel: placeLabel,
         start: start,
         refresh: refresh,
         applySettings: applySettings,

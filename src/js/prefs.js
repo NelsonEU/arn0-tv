@@ -33,7 +33,7 @@
             },
             // Seeded from config.js weather; Settings → Weather edits these.
             weather: {
-                place: 'off',           // Weather.PLACES key, or 'custom'
+                place: 'off',           // 'off' | 'custom'
                 latitude: null,
                 longitude: null,
                 label: null,            // display name when place === 'custom'
