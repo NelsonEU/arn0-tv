@@ -7,8 +7,9 @@
  * restating the rest of the block. Arrays (apps, inputs) replace the default wholesale.
  */
 window.LAUNCHER_LOCAL = {
-    // Weather: prefer Settings → Weather on the TV. Optional seed before first prefs save:
-    // weather: { latitude: 48.86, longitude: 2.35, unit: 'celsius' },
+    // Weather: prefer Settings → Weather on the TV (presets, Use my location, or Search city).
+    // Optional seed before first prefs save:
+    // weather: { latitude: 48.86, longitude: 2.35, label: 'Paris', unit: 'celsius' },
 
     // Optional first-run seed for Music. Prefer Settings → Music on the TV afterwards.
     // subsonic: {

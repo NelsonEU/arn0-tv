@@ -546,6 +546,20 @@
 
     // ---------- Weather
 
+    var weatherBusy = false;
+
+    function applyWeatherPlace(resolved) {
+        var p = Prefs.get().weather;
+        p.place = resolved.place;
+        p.latitude = resolved.latitude;
+        p.longitude = resolved.longitude;
+        p.label = resolved.label;
+        Prefs.save();
+        Weather.applySettings();
+        renderWeather();
+        UI.refresh();
+    }
+
     function renderWeather() {
         var p = Prefs.get().weather;
         var body = $('weather-body');
@@ -559,10 +573,18 @@
                 { kind: 'place', value: place.key }));
         });
         if (p.place === 'custom') {
-            placeChips.appendChild(chip('Custom', true, { kind: 'place', value: 'custom' }));
+            placeChips.appendChild(chip(p.label || 'Custom', true, { kind: 'place', value: 'custom' }));
         }
         placeBlock.appendChild(placeChips);
         body.appendChild(placeBlock);
+
+        var findBlock = el('div', 'setting-block');
+        findBlock.appendChild(el('h2', '', 'Find'));
+        var findChips = el('div', 'chips wrap');
+        findChips.appendChild(chip('Use my location', false, { kind: 'detect' }));
+        findChips.appendChild(chip('Search city…', false, { kind: 'search' }));
+        findBlock.appendChild(findChips);
+        body.appendChild(findBlock);
 
         var unitBlock = el('div', 'setting-block');
         unitBlock.appendChild(el('h2', '', 'Unit'));
@@ -573,20 +595,69 @@
         body.appendChild(unitBlock);
 
         var note = el('p', 'setting-note muted',
-            'Shown on the screen saver. Open-Meteo, no API key.');
+            'Shown on Home and the screen saver. Open-Meteo; location uses approximate IP when asked.');
         body.appendChild(note);
     }
 
     function activateWeather(item) {
         var p = Prefs.get().weather;
+        if (item.kind === 'detect') {
+            if (weatherBusy) return;
+            weatherBusy = true;
+            UI.toast('Finding location…');
+            Weather.detectLocation(function (err, loc) {
+                weatherBusy = false;
+                if (err || !loc) {
+                    UI.toast('Could not find location');
+                    DevLog.log('Weather detect failed: ' + (err || 'unknown'));
+                    return;
+                }
+                applyWeatherPlace(Weather.resolvePlace(loc.latitude, loc.longitude, loc.label));
+                UI.toast('Weather: ' + Weather.summary());
+            });
+            return;
+        }
+        if (item.kind === 'search') {
+            rename('', function (query) {
+                if (weatherBusy) return;
+                weatherBusy = true;
+                UI.toast('Searching…');
+                Weather.searchPlaces(query, function (err, results) {
+                    weatherBusy = false;
+                    if (err) {
+                        UI.toast('Search failed');
+                        DevLog.log('Weather search failed: ' + err);
+                        return;
+                    }
+                    if (!results || !results.length) {
+                        UI.toast('No cities found');
+                        return;
+                    }
+                    UI.menu('Cities', results.map(function (r) {
+                        return {
+                            label: r.label,
+                            run: function () {
+                                applyWeatherPlace(
+                                    Weather.resolvePlace(r.latitude, r.longitude, r.label)
+                                );
+                                UI.toast('Weather: ' + Weather.summary());
+                            }
+                        };
+                    }).concat([{ label: 'Cancel' }]));
+                });
+            }, { title: 'City name', maxLength: 64 });
+            return;
+        }
         if (item.kind === 'place') {
+            if (item.value === 'custom') return;
             p.place = item.value;
-            if (item.value !== 'custom') {
-                p.latitude = null;
-                p.longitude = null;
-            }
+            p.latitude = null;
+            p.longitude = null;
+            p.label = null;
         } else if (item.kind === 'unit') {
             p.unit = item.value;
+        } else {
+            return;
         }
         Prefs.save();
         Weather.applySettings();
