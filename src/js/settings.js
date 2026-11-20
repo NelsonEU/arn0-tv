@@ -425,8 +425,8 @@
     // ---------- Music (Subsonic ambient)
 
     function maskSecret(value) {
-        if (!value) return 'Not set';
-        return '••••••••';
+        if (!value) return 'Set password';
+        return 'Password set';
     }
 
     function renderMusic() {
@@ -997,7 +997,11 @@
         var input = $('rename-input');
         input.value = current || '';
         input.maxLength = opts.maxLength || 28;
-        input.type = opts.password ? 'password' : 'text';
+        // Keep type=text: Samsung's IME often returns an empty value for type=password.
+        // Mask with CSS instead (Unsplash key + Music password).
+        input.type = 'text';
+        input.classList.toggle('secret', !!opts.password);
+        input.setAttribute('autocomplete', opts.password ? 'off' : 'off');
         UI.show('rename');
     }
 
@@ -1010,6 +1014,7 @@
         renameAllowEmpty = false;
         input.blur();
         input.type = 'text';
+        input.classList.remove('secret');
         input.maxLength = 28;
         var title = $('rename-title');
         if (title) title.textContent = 'Name';

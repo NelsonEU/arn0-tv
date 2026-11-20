@@ -998,6 +998,12 @@ h1, h2 {
     font: 600 34px var(--font);
 }
 
+/* Mask secrets without type=password (Samsung IME clears password fields on Done). */
+#rename-input.secret {
+    -webkit-text-security: disc;
+    text-security: disc;
+}
+
 /* ---------- Lab ---------- */
 
 .lab-list {
