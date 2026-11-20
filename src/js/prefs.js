@@ -36,6 +36,7 @@
                 place: 'off',           // Weather.PLACES key, or 'custom'
                 latitude: null,
                 longitude: null,
+                label: null,            // display name when place === 'custom'
                 unit: 'celsius'         // 'celsius' | 'fahrenheit'
             },
             // Subsonic ambient player (server/user/password live in Subsonic creds store).

@@ -2,7 +2,8 @@
  * Weather for the screen saver, from Open-Meteo. No API key, free for non-commercial use.
  *
  * Place and unit live in Prefs (Settings → Weather). config.js only supplies defaults.
- * Places are a fixed list so the remote can pick a city; no coordinate typing.
+ * Places are a fixed remote-friendly list; Settings also offers IP detect and city search
+ * (Open-Meteo geocoding). Custom places store latitude/longitude/label in prefs.
  *
  * There is no polling. A TV launcher spends most of its life in the background with JavaScript
  * paused, so a timer would be both useless and rude; instead the reading is refreshed when
@@ -15,6 +16,11 @@
 
     var STORE_KEY = 'arn0.weather.v5';
     var ENDPOINT = 'https://api.open-meteo.com/v1/forecast';
+    var GEOCODE = 'https://geocoding-api.open-meteo.com/v1/search';
+    var IP_ENDPOINTS = [
+        'https://ipwho.is/',
+        'https://ipapi.co/json/'
+    ];
     var FRESH_MS = 60 * 60 * 1000;
     var USABLE_MS = 3 * 60 * 60 * 1000;
     var TIMEOUT_MS = 8000;
@@ -145,13 +151,126 @@
                 target.place = 'custom';
                 target.latitude = c.latitude;
                 target.longitude = c.longitude;
+                target.label = typeof c.label === 'string' ? c.label : null;
             }
         } else {
             target.place = 'off';
             target.latitude = null;
             target.longitude = null;
+            target.label = null;
         }
         return target;
+    }
+
+    function getJson(url, done) {
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', url, true);
+        xhr.timeout = TIMEOUT_MS;
+        xhr.onload = function () {
+            if (xhr.status < 200 || xhr.status >= 300) {
+                done('HTTP ' + xhr.status);
+                return;
+            }
+            try {
+                done(null, JSON.parse(xhr.responseText));
+            } catch (e) {
+                done('bad JSON');
+            }
+        };
+        xhr.onerror = function () { done('request failed'); };
+        xhr.ontimeout = function () { done('request timed out'); };
+        xhr.send();
+    }
+
+    function formatPlaceLabel(name, admin, country) {
+        var parts = [name, admin, country].filter(Boolean);
+        // Drop duplicate admin when it repeats the city name (e.g. Tirana / Tirana / Albania).
+        var out = [];
+        parts.forEach(function (p) {
+            if (!out.length || out[out.length - 1].toLowerCase() !== String(p).toLowerCase()) {
+                out.push(p);
+            }
+        });
+        return out.join(', ');
+    }
+
+    function parseIpLocation(data) {
+        if (!data || data.success === false) return null;
+        var lat = data.latitude;
+        var lon = data.longitude;
+        if (typeof lat !== 'number' || typeof lon !== 'number') return null;
+        if (!isFinite(lat) || !isFinite(lon)) return null;
+        var label = formatPlaceLabel(data.city, data.region || data.region_code, data.country);
+        if (!label) label = lat.toFixed(2) + ', ' + lon.toFixed(2);
+        return { latitude: lat, longitude: lon, label: label };
+    }
+
+    function detectLocation(done) {
+        var i = 0;
+        function tryNext(err) {
+            if (i >= IP_ENDPOINTS.length) {
+                done(err || 'location lookup failed');
+                return;
+            }
+            var url = IP_ENDPOINTS[i++];
+            getJson(url, function (e, data) {
+                if (e) {
+                    tryNext(e);
+                    return;
+                }
+                var loc = parseIpLocation(data);
+                if (!loc) {
+                    tryNext('no coordinates');
+                    return;
+                }
+                done(null, loc);
+            });
+        }
+        tryNext();
+    }
+
+    function searchPlaces(query, done) {
+        var q = String(query || '').trim();
+        if (q.length < 2) {
+            done('type at least 2 characters');
+            return;
+        }
+        var url = GEOCODE +
+            '?name=' + encodeURIComponent(q) +
+            '&count=8&language=en&format=json';
+        getJson(url, function (err, data) {
+            if (err) {
+                done(err);
+                return;
+            }
+            var rows = (data && data.results) || [];
+            var out = [];
+            rows.forEach(function (r) {
+                if (typeof r.latitude !== 'number' || typeof r.longitude !== 'number') return;
+                var label = formatPlaceLabel(r.name, r.admin1, r.country);
+                out.push({
+                    latitude: r.latitude,
+                    longitude: r.longitude,
+                    label: label || r.name,
+                    name: r.name
+                });
+            });
+            done(null, out);
+        });
+    }
+
+    // Prefer a preset city when coordinates are close; otherwise store as custom + label.
+    function resolvePlace(lat, lon, label) {
+        var key = matchPlace(lat, lon);
+        if (key) {
+            return { place: key, latitude: null, longitude: null, label: null };
+        }
+        return {
+            place: 'custom',
+            latitude: lat,
+            longitude: lon,
+            label: label || 'Custom'
+        };
     }
 
     // ---------- Cache
@@ -189,7 +308,7 @@
 
     function placeLabel() {
         var p = prefsWeather();
-        if (p.place === 'custom') return 'Custom';
+        if (p.place === 'custom') return p.label || 'Custom';
         var chosen = place(p.place);
         return chosen.key === 'off' ? '' : chosen.label;
     }
@@ -320,15 +439,16 @@
     function summary() {
         var p = prefsWeather();
         if (!configured()) return 'Off';
-        var label = place(p.place).label;
-        if (p.place === 'custom') label = 'Custom';
-        return label + ' · ' + (p.unit === 'fahrenheit' ? '°F' : '°C');
+        return placeLabel() + ' · ' + (p.unit === 'fahrenheit' ? '°F' : '°C');
     }
 
     window.Weather = {
         PLACES: PLACES,
         seedFromConfig: seedFromConfig,
         place: place,
+        resolvePlace: resolvePlace,
+        detectLocation: detectLocation,
+        searchPlaces: searchPlaces,
         start: start,
         refresh: refresh,
         applySettings: applySettings,
