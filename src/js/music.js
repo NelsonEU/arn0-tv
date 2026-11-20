@@ -20,9 +20,33 @@
     var lastError = '';
     var toastSkip = false;
     var listeners = [];
+    // Cached playlist entries for source === 'playlist' (shuffled, cursor walks through).
+    var playlistCache = { id: null, songs: [], cursor: 0 };
 
     function prefs() {
         return Prefs.get().music;
+    }
+
+    function shuffleInPlace(list) {
+        for (var i = list.length - 1; i > 0; i--) {
+            var j = Math.floor(Math.random() * (i + 1));
+            var t = list[i];
+            list[i] = list[j];
+            list[j] = t;
+        }
+        return list;
+    }
+
+    function clearQueue() {
+        queue = [];
+        playlistCache = { id: null, songs: [], cursor: 0 };
+    }
+
+    function sourceLabel() {
+        var p = prefs();
+        if (p.source === 'playlist' && p.playlistName) return p.playlistName;
+        if (p.source === 'playlist' && p.playlistId) return 'Playlist';
+        return 'Random';
     }
 
     function notify() {
@@ -66,20 +90,87 @@
         audio.volume = v ? v.value : 0.35;
     }
 
+    function ensurePlaylistCache() {
+        var p = prefs();
+        var id = p.playlistId ? String(p.playlistId) : '';
+        if (!id) return Promise.reject(new Error('No playlist selected'));
+        if (playlistCache.id === id && playlistCache.songs.length) {
+            return Promise.resolve(playlistCache);
+        }
+        return Subsonic.getPlaylist(id).then(function (pl) {
+            if (!pl.songs.length) throw new Error('Playlist is empty');
+            playlistCache = {
+                id: id,
+                songs: shuffleInPlace(pl.songs.slice()),
+                cursor: 0
+            };
+            if (pl.name && p.playlistName !== pl.name) {
+                p.playlistName = pl.name;
+                Prefs.save();
+            }
+            return playlistCache;
+        });
+    }
+
+    function takeFromPlaylist(n) {
+        return ensurePlaylistCache().then(function (cache) {
+            var out = [];
+            var i;
+            for (i = 0; i < n; i++) {
+                if (cache.cursor >= cache.songs.length) {
+                    shuffleInPlace(cache.songs);
+                    cache.cursor = 0;
+                }
+                out.push(cache.songs[cache.cursor++]);
+            }
+            return out;
+        });
+    }
+
     function refill() {
         if (fetching || !Subsonic.configured()) return Promise.resolve();
         fetching = true;
-        return Subsonic.getRandomSongs(BATCH).then(function (songs) {
+        var p = prefs();
+        var fetch = (p.source === 'playlist' && p.playlistId)
+            ? takeFromPlaylist(BATCH)
+            : Subsonic.getRandomSongs(BATCH);
+        return fetch.then(function (songs) {
             fetching = false;
             lastError = '';
             songs.forEach(function (s) { queue.push(s); });
-            DevLog.log('Music: queued ' + songs.length + ' random songs (' + queue.length + ' total)');
+            DevLog.log('Music: queued ' + songs.length + ' from ' + sourceLabel() +
+                ' (' + queue.length + ' total)');
         }).catch(function (e) {
             fetching = false;
             lastError = (e && e.message) || 'Fetch failed';
             DevLog.log('Music: ' + lastError);
             UI.toast('Music: ' + lastError);
         });
+    }
+
+    function setSource(source, playlist) {
+        var p = prefs();
+        if (source === 'playlist' && playlist && playlist.id != null) {
+            p.source = 'playlist';
+            p.playlistId = String(playlist.id);
+            p.playlistName = playlist.name || 'Playlist';
+        } else {
+            p.source = 'random';
+            p.playlistId = null;
+            p.playlistName = null;
+        }
+        Prefs.save();
+        clearQueue();
+        lastError = '';
+        // Drop the current track so the next Play/Next uses the new source.
+        current = null;
+        if (audio) {
+            audio.pause();
+            audio.removeAttribute('src');
+            audio.load();
+        }
+        if (p.playing && p.enabled) next(true);
+        notify();
     }
 
     function playSong(song, announce) {
@@ -278,9 +369,10 @@
     function summary() {
         if (!Subsonic.configured()) return 'Not configured';
         var p = prefs();
-        if (!p.enabled) return 'Off';
+        var src = sourceLabel();
+        if (!p.enabled) return 'Off · ' + src;
         if (isPlaying() && current) return current.title;
-        return p.playing ? 'Playing' : 'On · paused';
+        return (p.playing ? 'Playing' : 'On · paused') + ' · ' + src;
     }
 
     function onVisibility() {
@@ -320,6 +412,9 @@
         next: function () { next(false); },
         setEnabled: setEnabled,
         setVolume: setVolume,
+        setSource: setSource,
+        sourceLabel: sourceLabel,
+        clearQueue: clearQueue,
         isPlaying: isPlaying,
         current: function () { return current; },
         statusText: statusText,

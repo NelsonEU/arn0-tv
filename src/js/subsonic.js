@@ -171,18 +171,46 @@
         return api('ping').then(function () { return true; });
     }
 
+    function mapSong(s) {
+        return {
+            id: String(s.id),
+            title: s.title || 'Unknown',
+            artist: s.artist || s.albumArtist || '',
+            album: s.album || ''
+        };
+    }
+
+    function asList(value) {
+        if (!value) return [];
+        return Array.isArray(value) ? value : [value];
+    }
+
     function getRandomSongs(size) {
         return api('getRandomSongs', { size: size || 20 }).then(function (r) {
-            var songs = (r.randomSongs && r.randomSongs.song) || [];
-            if (!Array.isArray(songs)) songs = songs ? [songs] : [];
-            return songs.map(function (s) {
+            return asList(r.randomSongs && r.randomSongs.song).map(mapSong);
+        });
+    }
+
+    function getPlaylists() {
+        return api('getPlaylists').then(function (r) {
+            return asList(r.playlists && r.playlists.playlist).map(function (p) {
                 return {
-                    id: String(s.id),
-                    title: s.title || 'Unknown',
-                    artist: s.artist || s.albumArtist || '',
-                    album: s.album || ''
+                    id: String(p.id),
+                    name: p.name || 'Playlist',
+                    songCount: typeof p.songCount === 'number' ? p.songCount : null
                 };
             });
+        });
+    }
+
+    function getPlaylist(id) {
+        return api('getPlaylist', { id: id }).then(function (r) {
+            var pl = r.playlist || {};
+            return {
+                id: String(pl.id != null ? pl.id : id),
+                name: pl.name || 'Playlist',
+                songs: asList(pl.entry).map(mapSong)
+            };
         });
     }
 
@@ -206,6 +234,8 @@
         configured: configured,
         ping: ping,
         getRandomSongs: getRandomSongs,
+        getPlaylists: getPlaylists,
+        getPlaylist: getPlaylist,
         streamUrl: streamUrl,
         cfg: cfg,
         setCreds: setCreds,

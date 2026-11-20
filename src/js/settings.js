@@ -457,6 +457,19 @@
         onBlock.appendChild(onChips);
         body.appendChild(onBlock);
 
+        var srcBlock = el('div', 'setting-block');
+        srcBlock.appendChild(el('h2', '', 'Source'));
+        var srcChips = el('div', 'chips wrap');
+        var onPlaylist = p.source === 'playlist' && !!p.playlistId;
+        srcChips.appendChild(chip('Random', !onPlaylist, { kind: 'source', value: 'random' }));
+        srcChips.appendChild(chip(
+            onPlaylist ? (p.playlistName || 'Playlist') : 'Playlist…',
+            onPlaylist,
+            { kind: 'source', value: 'playlist' }
+        ));
+        srcBlock.appendChild(srcChips);
+        body.appendChild(srcBlock);
+
         var volBlock = el('div', 'setting-block');
         volBlock.appendChild(el('h2', '', 'Volume'));
         var volChips = el('div', 'chips');
@@ -476,7 +489,40 @@
         body.appendChild(ctrlBlock);
 
         body.appendChild(el('p', 'setting-note muted',
-            'Random tracks while this launcher is open. Pauses when you open another app. Saved on the TV — no rebuild needed.'));
+            'Plays while this launcher is open. Pauses when you open another app. Saved on the TV — no rebuild needed.'));
+    }
+
+    function pickMusicPlaylist() {
+        if (!Subsonic.configured()) {
+            UI.toast('Set server, user and password first');
+            return;
+        }
+        UI.toast('Loading playlists…');
+        Subsonic.getPlaylists().then(function (list) {
+            if (!list.length) {
+                UI.toast('No playlists on this server');
+                return;
+            }
+            var p = Prefs.get().music;
+            var options = list.map(function (pl) {
+                var label = pl.name;
+                if (pl.songCount != null) label += ' · ' + pl.songCount;
+                return {
+                    label: label,
+                    checked: p.source === 'playlist' && String(p.playlistId) === String(pl.id),
+                    run: function () {
+                        Music.setSource('playlist', pl);
+                        renderMusic();
+                        UI.refresh();
+                        UI.toast('Music: ' + Music.sourceLabel());
+                    }
+                };
+            });
+            options.push({ label: 'Cancel' });
+            UI.menu('Playlists', options);
+        }).catch(function (e) {
+            UI.toast('Playlists failed: ' + ((e && e.message) || 'error'));
+        });
     }
 
     function activateMusic(item) {
@@ -484,6 +530,7 @@
         if (item.kind === 'server') {
             rename(c.baseUrl || 'http://', function (url) {
                 Subsonic.setCreds({ baseUrl: url });
+                Music.clearQueue();
                 Music.pause();
                 Music.renderBar();
                 renderMusic();
@@ -494,6 +541,7 @@
         if (item.kind === 'user') {
             rename(c.user || '', function (user) {
                 Subsonic.setCreds({ user: user });
+                Music.clearQueue();
                 Music.pause();
                 Music.renderBar();
                 renderMusic();
@@ -504,6 +552,7 @@
         if (item.kind === 'password') {
             rename('', function (password) {
                 Subsonic.setCreds({ password: password });
+                Music.clearQueue();
                 Music.pause();
                 Music.renderBar();
                 renderMusic();
@@ -528,7 +577,14 @@
             });
             return;
         }
-        if (item.kind === 'enabled') {
+        if (item.kind === 'source') {
+            if (item.value === 'playlist') {
+                pickMusicPlaylist();
+                return;
+            }
+            Music.setSource('random');
+            UI.toast('Music: Random');
+        } else if (item.kind === 'enabled') {
             Music.setEnabled(item.value);
             if (!item.value) Music.pause();
         } else if (item.kind === 'volume') {

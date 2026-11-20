@@ -43,7 +43,10 @@
             music: {
                 enabled: false,
                 playing: false,
-                volume: 'med'           // Music.VOLUMES key: low | med | high
+                volume: 'med',          // Music.VOLUMES key: low | med | high
+                source: 'random',       // 'random' | 'playlist'
+                playlistId: null,
+                playlistName: null
             },
             appearance: {
                 clock: '24h',           // '24h' | '12h'
