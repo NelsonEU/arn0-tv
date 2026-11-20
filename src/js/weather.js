@@ -3,7 +3,6 @@
  *
  * Place and unit live in Prefs (Settings → Weather). config.js only supplies defaults.
  * Place is Off, or a custom lat/lon/label from IP detect or Open-Meteo city search.
- * Older preset city keys in saved prefs are migrated to custom on load.
  *
  * There is no polling. A TV launcher spends most of its life in the background with JavaScript
  * paused, so a timer would be both useless and rude; instead the reading is refreshed when
@@ -25,24 +24,6 @@
     var USABLE_MS = 3 * 60 * 60 * 1000;
     var TIMEOUT_MS = 8000;
     var RETRY_MS = 10 * 60 * 1000;
-
-    // Former preset chips — kept only so saved prefs still resolve after the list was dropped.
-    var LEGACY_PLACES = {
-        paris: { label: 'Paris', latitude: 48.86, longitude: 2.35 },
-        lyon: { label: 'Lyon', latitude: 45.76, longitude: 4.84 },
-        marseille: { label: 'Marseille', latitude: 43.30, longitude: 5.37 },
-        bordeaux: { label: 'Bordeaux', latitude: 44.84, longitude: -0.58 },
-        lille: { label: 'Lille', latitude: 50.63, longitude: 3.06 },
-        brussels: { label: 'Brussels', latitude: 50.85, longitude: 4.35 },
-        amsterdam: { label: 'Amsterdam', latitude: 52.37, longitude: 4.90 },
-        london: { label: 'London', latitude: 51.51, longitude: -0.13 },
-        madrid: { label: 'Madrid', latitude: 40.42, longitude: -3.70 },
-        barcelona: { label: 'Barcelona', latitude: 41.39, longitude: 2.17 },
-        berlin: { label: 'Berlin', latitude: 52.52, longitude: 13.41 },
-        rome: { label: 'Rome', latitude: 41.90, longitude: 12.50 },
-        tirana: { label: 'Tirana', latitude: 41.33, longitude: 19.82 },
-        newyork: { label: 'New York', latitude: 40.71, longitude: -74.01 }
-    };
 
     function group(code) {
         if (code <= 1) return 'clear';
@@ -103,28 +84,9 @@
         return Prefs.get().weather;
     }
 
-    // Turn old preset keys (paris, …) into custom lat/lon/label once.
-    function migratePlace(p) {
-        if (!p || p.place === 'off' || p.place === 'custom') return false;
-        var legacy = LEGACY_PLACES[p.place];
-        if (!legacy) {
-            p.place = 'off';
-            p.latitude = null;
-            p.longitude = null;
-            p.label = null;
-            return true;
-        }
-        p.place = 'custom';
-        p.latitude = legacy.latitude;
-        p.longitude = legacy.longitude;
-        p.label = p.label || legacy.label;
-        return true;
-    }
-
     function coords() {
         var p = prefsWeather();
-        if (migratePlace(p)) Prefs.save();
-        if (p.place === 'off' || !p.place) return null;
+        if (p.place !== 'custom') return null;
         if (typeof p.latitude === 'number' && typeof p.longitude === 'number') {
             return { latitude: p.latitude, longitude: p.longitude, unit: p.unit };
         }
@@ -294,8 +256,7 @@
 
     function placeLabel() {
         var p = prefsWeather();
-        if (migratePlace(p)) Prefs.save();
-        if (p.place === 'off' || !p.place) return '';
+        if (p.place !== 'custom') return '';
         return p.label || 'Custom';
     }
 
