@@ -818,6 +818,42 @@ h1, h2 {
     color: var(--bg);
 }
 
+.setting-inline-heads {
+    display: flex;
+    align-items: baseline;
+    gap: 200px;
+    margin-bottom: 14px;
+}
+
+.setting-inline-heads h2 {
+    margin-bottom: 0;
+}
+
+.chip-gap {
+    width: 48px;
+    flex: none;
+}
+
+.chip.icon-chip {
+    width: 72px;
+    height: 72px;
+    padding: 0;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.chip.icon-chip.on::before {
+    content: none;
+}
+
+.chip.icon-chip svg {
+    width: 34px;
+    height: 34px;
+    display: block;
+}
+
 .thumbs {
     display: grid;
     grid-template-columns: repeat(6, 256px);

@@ -134,6 +134,23 @@
         return c;
     }
 
+    function iconChip(svg, on, item, label) {
+        var c = el('div', 'chip icon-chip' + (on ? ' on' : ''));
+        c.innerHTML = svg;
+        c._item = item;
+        if (label) c.setAttribute('aria-label', label);
+        return c;
+    }
+
+    var ICON = {
+        play: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>',
+        pause: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>',
+        next: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>',
+        volLow: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 9v6h4l5 5V4L9 9H5zm11.5 3a2.5 2.5 0 0 0-1.5-2.3v4.6a2.5 2.5 0 0 0 1.5-2.3z"/></svg>',
+        volMed: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 9v6h4l5 5V4L9 9H5zm11.5 3c0-1.8-1-3.3-2.5-4v8c1.5-.7 2.5-2.2 2.5-4z"/><path d="M14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z" opacity=".45"/></svg>',
+        volHigh: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 9v6h4l5 5V4L9 9H5zm11.5 3c0-1.8-1-3.3-2.5-4v8c1.5-.7 2.5-2.2 2.5-4z"/><path d="M14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/></svg>'
+    };
+
     function chipRows(container) {
         var rows = [];
         UI.children(container).forEach(function (block) {
@@ -141,7 +158,12 @@
             var chips = block.querySelector('.chips, .thumbs');
             if (!chips) return;
             if (chips.classList.contains('thumbs')) rows = rows.concat(UI.chunk(UI.children(chips), THUMB_COLS));
-            else rows.push(UI.children(chips));
+            else {
+                // Skip spacer nodes (e.g. Controls | Volume gap) so focus stays on real chips.
+                rows.push(UI.children(chips).filter(function (n) {
+                    return !n.classList.contains('chip-gap');
+                }));
+            }
         });
         return rows;
     }
@@ -438,6 +460,14 @@
         var status = el('p', 'setting-note', Music.statusText());
         body.appendChild(status);
 
+        var onBlock = el('div', 'setting-block');
+        onBlock.appendChild(el('h2', '', 'Music'));
+        var onChips = el('div', 'chips');
+        onChips.appendChild(chip('On', p.enabled, { kind: 'enabled', value: true }));
+        onChips.appendChild(chip('Off', !p.enabled, { kind: 'enabled', value: false }));
+        onBlock.appendChild(onChips);
+        body.appendChild(onBlock);
+
         var serverBlock = el('div', 'setting-block');
         serverBlock.appendChild(el('h2', '', 'Server'));
         var serverChips = el('div', 'chips wrap');
@@ -448,14 +478,6 @@
         serverBlock.appendChild(serverChips);
         body.appendChild(serverBlock);
         body.appendChild(el('p', 'setting-note muted', Subsonic.summary()));
-
-        var onBlock = el('div', 'setting-block');
-        onBlock.appendChild(el('h2', '', 'Music'));
-        var onChips = el('div', 'chips');
-        onChips.appendChild(chip('On', p.enabled, { kind: 'enabled', value: true }));
-        onChips.appendChild(chip('Off', !p.enabled, { kind: 'enabled', value: false }));
-        onBlock.appendChild(onChips);
-        body.appendChild(onBlock);
 
         var srcBlock = el('div', 'setting-block');
         srcBlock.appendChild(el('h2', '', 'Source'));
@@ -470,23 +492,22 @@
         srcBlock.appendChild(srcChips);
         body.appendChild(srcBlock);
 
-        var volBlock = el('div', 'setting-block');
-        volBlock.appendChild(el('h2', '', 'Volume'));
-        var volChips = el('div', 'chips');
-        Music.VOLUMES.forEach(function (v) {
-            volChips.appendChild(chip(v.label, p.volume === v.key, { kind: 'volume', value: v.key }));
-        });
-        volBlock.appendChild(volChips);
-        body.appendChild(volBlock);
-
-        var ctrlBlock = el('div', 'setting-block');
-        ctrlBlock.appendChild(el('h2', '', 'Controls'));
-        var ctrlChips = el('div', 'chips');
-        ctrlChips.appendChild(chip('Play', false, { kind: 'play' }));
-        ctrlChips.appendChild(chip('Pause', false, { kind: 'pause' }));
-        ctrlChips.appendChild(chip('Next', false, { kind: 'next' }));
-        ctrlBlock.appendChild(ctrlChips);
-        body.appendChild(ctrlBlock);
+        var playBlock = el('div', 'setting-block');
+        var heads = el('div', 'setting-inline-heads');
+        heads.appendChild(el('h2', '', 'Controls'));
+        heads.appendChild(el('h2', '', 'Volume'));
+        playBlock.appendChild(heads);
+        var playChips = el('div', 'chips');
+        var playing = Music.isPlaying();
+        playChips.appendChild(iconChip(ICON.play, playing, { kind: 'play' }, 'Play'));
+        playChips.appendChild(iconChip(ICON.pause, !playing && !!Music.current(), { kind: 'pause' }, 'Pause'));
+        playChips.appendChild(iconChip(ICON.next, false, { kind: 'next' }, 'Next'));
+        playChips.appendChild(el('div', 'chip-gap'));
+        playChips.appendChild(iconChip(ICON.volLow, p.volume === 'low', { kind: 'volume', value: 'low' }, 'Low'));
+        playChips.appendChild(iconChip(ICON.volMed, p.volume === 'med', { kind: 'volume', value: 'med' }, 'Med'));
+        playChips.appendChild(iconChip(ICON.volHigh, p.volume === 'high', { kind: 'volume', value: 'high' }, 'High'));
+        playBlock.appendChild(playChips);
+        body.appendChild(playBlock);
 
         body.appendChild(el('p', 'setting-note muted',
             'Plays while this launcher is open. Pauses when you open another app. Saved on the TV — no rebuild needed.'));
