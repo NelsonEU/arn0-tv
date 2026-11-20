@@ -254,26 +254,80 @@
         toastTimer = setTimeout(function () { $('toast').classList.remove('visible'); }, 3500);
     }
 
-    // Small pop-up list over the current view. options: [{ label, run, checked }]
-    function menu(title, options) {
-        $('menu-title').textContent = title;
+    // Small pop-up list. Long lists show MENU_PAGE rows and slide the window on ▲/▼.
+    var MENU_PAGE = 10;
+    var menuOpts = [];
+    var menuFocus = 0;
+    var menuStart = 0;
+
+    function renderMenuList() {
         var list = $('menu-list');
+        var box = list.parentNode;
         list.innerHTML = '';
-        options.forEach(function (o) {
+        var end = Math.min(menuStart + MENU_PAGE, menuOpts.length);
+        var i;
+        for (i = menuStart; i < end; i++) {
+            var o = menuOpts[i];
             var li = el('li', o.checked ? 'checked' : '', o.label);
             li._item = o;
             list.appendChild(li);
-        });
-        focus.menu = { r: 0, c: 0, last: {} };
+        }
+        if (box) {
+            box.classList.toggle('more-above', menuStart > 0);
+            box.classList.toggle('more-below', end < menuOpts.length);
+        }
+        focus.menu = { r: menuFocus - menuStart, c: 0, last: {} };
+    }
+
+    // options: [{ label, run, checked }]
+    function menu(title, options) {
+        menuOpts = options || [];
+        menuFocus = 0;
+        for (var i = 0; i < menuOpts.length; i++) {
+            if (menuOpts[i].checked) {
+                menuFocus = i;
+                break;
+            }
+        }
+        var maxStart = Math.max(0, menuOpts.length - MENU_PAGE);
+        menuStart = clamp(menuFocus - Math.floor((MENU_PAGE - 1) / 2), 0, maxStart);
+        $('menu-title').textContent = title;
+        renderMenuList();
         show('menu');
+    }
+
+    function menuMove(delta) {
+        if (!menuOpts.length) return true;
+        var next = clamp(menuFocus + delta, 0, menuOpts.length - 1);
+        if (next === menuFocus) {
+            if (window.Sound) Sound.play('edge');
+            return true;
+        }
+        menuFocus = next;
+        if (menuFocus < menuStart) menuStart = menuFocus;
+        if (menuFocus >= menuStart + MENU_PAGE) menuStart = menuFocus - MENU_PAGE + 1;
+        renderMenuList();
+        refresh();
+        if (window.Sound) Sound.play('move');
+        return true;
     }
 
     function init() {
         register('menu', {
             el: $('menu'),
             overlay: true,
-            hints: [['OK', 'Select'], ['Back', 'Close']],
+            hints: function () {
+                if (menuOpts.length > MENU_PAGE) {
+                    return [['▲ ▼', 'Scroll'], ['OK', 'Select'], ['Back', 'Close']];
+                }
+                return [['OK', 'Select'], ['Back', 'Close']];
+            },
             rows: function () { return children($('menu-list')).map(function (li) { return [li]; }); },
+            onKey: function (k) {
+                if (k === KEY.UP) return menuMove(-1);
+                if (k === KEY.DOWN) return menuMove(1);
+                return false;
+            },
             activate: function (o) {
                 show(views.menu.from, { back: true });
                 if (o.run) o.run();
